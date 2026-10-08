@@ -1,0 +1,62 @@
+id = "effects"
+
+title = "Effects"
+
+category = "script"
+
+file_types = [
+    "common/scripted_effects/**",
+    "events/**",
+    "common/decisions/**"
+]
+
+tags = [
+    "effect",
+    "event",
+    "flags",
+    "modifier",
+    "loop",
+    "resource"
+]
+
+body = """
+## 概要\n\n效果（effect）是真正改变游戏状态的指令，类似其它语言里的函数。效果必须在某个作用域下执行；**作用域不存在时效果静默无事发生、不报错**（触发器则会报错），所以“没生效又没报错”往往就是作用域为空。可复用效果写在 `common/scripted_effects/*.txt`。\n\n## 文件位置与命名\n\n- 可复用效果：`common/scripted_effects/<你的前缀>.txt`，定义后当效果调用，例如 `my_mod_reward = yes`。\n- 事件：`events/<你的前缀>_events.txt`，文件顶部必须有 `namespace = <你的前缀>`，事件 id 形如 `<namespace>.<数字>`；id **不能含字母**，前导零会被截断（`x.003` 等同 `x.3`）。\n- 效果清单以本机 **4.1.7** 安装目录为唯一权威：统计方法 `Get-ChildItem <游戏>\\common,<游戏>\\events -Recurse -File -Include *.txt | Select-String -Pattern '<效果>' -SimpleMatch`，0 次即该写法不存在。\n- 运行时导出：控制台 `trigger_docs` → `logs/script_documentation/effects.log`（wiki Effects 页核对版本 4.3，冲突时以 vanilla 为准）。\n\n## 语法与字段\n\n**科技**：`give_technology = { tech = tech_desert_colonization message = yes }`（作用域 country）。科技键必须真实存在。4.1.7 全库 `give_technology` 出现 **497** 次，而 `add_technology` **0 次** —— 授予科技只能用 `give_technology`。\n\n**调用事件（也是“延迟触发”的标准写法）**：\n`country_event = { id = <namespace>.<n> days = 200 random = 100 }`，延迟 200–300 天；`planet_event = { id = … }`、`fleet_event`、`ship_event`、`pop_group_event`（v4.0 起，原 `pop_event`）、`system_event`、`starbase_event`、`leader_event`、`first_contact_event`、`espionage_operation_event`、`situation_event`、`agreement_event`。事件 id 在入队时不校验条件，真正执行前才检查。v3.0 起可用 `scopes = { from = fromfrom }` 覆盖调用作用域。\n\n**旗标**：`set_country_flag = <key>`、`remove_country_flag = <key>`、`set_timed_country_flag = { flag = <key> days = 360 }`（也可 `months` / `years`）；全局用 `set_global_flag = <key>` / `set_timed_global_flag = { flag = … days = … }`。行星、舰队、舰船、人口、领袖、战争、星港、星区等各有 `set_<scope>_flag` / `set_timed_<scope>_flag` / `remove_<scope>_flag`。旗标名支持动态后缀 `@scope`，如 `my_flag@from`。\n\n**修正**：`add_modifier = { modifier = <key> days = 360 multiplier = 2 clear_on_owner_change = yes }`（不写时长 = 永不过期；`multiplier` 可接受变量，`time_multiplier` 用变量缩放松时长）；`remove_modifier = <key>`。\n\n**资源**：`add_resource = { energy = 250 minerals = 100 }`，可加 `mult = <变量或 value:脚本值>` 统一倍率（vanilla 用法：`add_resource = { unity = @agenda_a_higher_purpose_unity mult = value:country_assigned_priests }`，甚至 `mult = -1` 用来扣资源，见 `common/inline_scripts/events/dynamic_resource_cost.txt`）；另有 `add_monthly_resource_mult = { resource = unity value = 0.5 min = 10 max = 5000 mult = <变量> }`。4.1.7 全库 `add_resource` 出现 **1811** 次。\n\n**创建行星与对象**：`spawn_planet = { class = \"pc_habitat\" location = event_target:target_planet orbit_location = yes orbit_angle_offset = 135 orbit_distance_offset = 9.899 size = 6 has_ring = no init_effect = { … } }` —— **`spawn_planet` 在 4.1.7 中确实存在**（全库 64 次），典型用例见 `common/megastructures/habitats.txt:329` 与 `common/megastructures/00_ring_world.txt:298`（`class` / `location` / `orbit_location` / `orbit_angle_offset` / `orbit_distance_offset` / `size` / `has_ring` / `init_effect` 均为 vanilla 实际出现的键）。系统内新建星系用 `spawn_system = { … }`。\n\n**其它创建**：`create_country = { name = … adjective = … authority = … civics = { civic = … } species = … effect = { … } }`；`create_fleet = { name = … effect = { create_ship = { name = … design = … } set_owner = root set_location = … } }`；`create_ship = { name = … design = … }`；`create_army`、`create_pop`、`create_pop_group`、`create_colony`、`create_starbase`、`create_mining_station`、`create_research_station`、`create_species`、`add_relic`。\n\n**星域与控制**：`set_owner = <target>`、`set_controller = <target>`、`set_location = <target>`、`set_capital = yes`、`change_pc = <planet class>`、`set_star_class = <sc>`。\n\n**伦理与政治**：`shift_ethic = <ethic key>`、`country_add_ethic = <key>`、`country_remove_ethic = <key>`、`set_policy = { policy = <key> option = <key> cooldown = no }`、`add_opinion_modifier = { modifier = <key> who = <target> }`、`add_casus_belli = { type = cb_subjugation who = <target> days = 10 }`。\n\n**流程控制**：`if = { limit = { <触发器> } <效果> }` / `else_if = { limit = { … } … }` / `else = { … }`；`random_list = { 50 = { … } 30 = { … } 20 = { … } }`、`locked_random_list`、`switch = { trigger = <触发器> <值> = { … } default = { … } }`、`break = yes`（跳出当前效果块）；`while = { count = <int 或变量> <效果> }`。**没有 `for_each`**：4.1.7 全库 `for_each` 出现 **0 次**。\n\n**迭代**：`every_<列表> = { limit = { … } <效果> }`、`random_<列表> = { … }`、`ordered_<列表> = { … }`。通用形态即 `every_owned_planet = { limit = { … } … }`（vanilla 134 次），块内作用域是该元素。`ordered_` 的真实键与参数（vanilla 实例）：`ordered_owned_planet = { limit = { … } position = 0 order_by = trigger:pop_amount save_event_target_as = parade_city }`，见 `common/scripted_effects/00_scripted_effects.txt:5580`；其它已存在的有 `ordered_controlled_fleet`、`ordered_country`、`ordered_fleet_in_system`、`ordered_planet_within_border`、`ordered_owned_leader`、`ordered_owned_fleet`、`ordered_owned_ship`、`ordered_owned_pop_group`、`ordered_pop_faction`、`ordered_member`。\n\n**tooltip 与调试**：`hidden_effect = { … }`（不在 tooltip 中显示内部效果）、`custom_tooltip = <loc 键>`、`tooltip = { <效果> }`（只生成 tooltip、不执行）、`log = <字符串>`。`log` **在效果块中合法**：vanilla 的 `common/scripted_effects/00_scripted_effects.txt:16-42` 定义了 `print_scope_effect`，整段就是 `log = \"…\"` 调用，用于一次性打印当前所有作用域。\n\n## 常见错误\n\n- 写 `add_technology`：4.1.7 全库 0 次，科技授予只能用 `give_technology = { tech = … }`。\n- 把 `country_event = { id = … }` 写在错误作用域（例如在行星事件里想触发国家事件，却直接写 `country_event` 而不先切到 `owner`）。\n- 给 `add_modifier` 传不存在的 modifier 键，或忘了 `days` 而以为它只持续一段时间。\n- `random_list` 的权重写成浮点或写重复键导致概率不可控。\n- 用 `for_each`：4.1.7 全库 0 次，用 `every_` / `random_` / `ordered_` 或 `while = { count = N }`。\n- 忘了 `spawn_planet` 的 `init_effect` 需要自行 `set_name` / `set_surveyed` / `set_planet_entity`，导致新行星没有名字与实体（对照 `common/megastructures/habitats.txt`）。\n\n## 待确认\n\n- **`spawn_planet` 的 brief 假设已推翻**：brief 把它列为“不确定”，但 4.1.7 的 `common/` + `events/` 中共出现 64 次，`common/megastructures/habitats.txt:329`、`00_ring_world.txt:298` 有完整用例，参数为 `class / location / orbit_location / orbit_angle_offset / orbit_distance_offset / size / has_ring / init_effect`。本条目的语法部分已按 vanilla 改写。仍不确定的是它是否还有未在本机 vanilla 中出现过的可选参数（如 `orbit_distance`、`entity`），需要时查 `effects.log`。\n- **`log` 已确认可用于效果块**：brief 与 wiki（把 `log` 列在触发器清单里）让人以为它只属于触发器，但 `common/scripted_effects/00_scripted_effects.txt:16-42` 的 `print_scope_effect` 整段在 scripted effect 中使用 `log = \"…\"`，4.1.7 全库 `log = ` 共 157 次。可放心在 `immediate` / `option` / scripted effect 中使用。\n- **`for_each` / `add_technology` 已确认不存在**（全库各 0 次），不再是待确认项，仅在此留档：不要使用。
+"""
+
+syntax_blocks = [
+    "# common/scripted_effects/my_mod_chain_effects.txt\nmy_mod_start_chain = {\n\t# 全局单例标记\n\tset_global_flag = my_mod_chain_started\n\n\t# 国家标记 + 定时标记\n\tset_country_flag = my_mod_chain_stage_1\n\tset_timed_country_flag = { flag = my_mod_chain_cooldown days = 720 }\n\n\tadd_resource = { influence = 50 }\n\tadd_modifier = { modifier = my_mod_chain_boon days = 360 }\n\n\tif = {\n\t\tlimit = {\n\t\t\thas_technology = tech_zero_point_power\n\t\t\tNOT = { has_country_flag = my_mod_chain_advanced }\n\t\t}\n\t\tgive_technology = { tech = tech_desert_colonization message = yes }\n\t\tshift_ethic = ethic_materialist\n\t}\n\telse = {\n\t\tadd_resource = { society_research = 300 }\n\t}\n\n\t# 迭代：块内作用域是每一颗本国行星\n\tevery_owned_planet = {\n\t\tlimit = {\n\t\t\tis_planet_class = pc_continental\n\t\t\thas_building = building_capitol\n\t\t}\n\t\tsave_event_target_as = my_mod_marked_capital\n\t\tadd_modifier = { modifier = my_mod_colony_boon days = 720 }\n\t}\n\n\t# while 循环\n\twhile = {\n\t\tcount = 3\n\t\tadd_resource = { unity = 100 }\n\t}\n\n\t# 延迟触发：200~300 天后调用下一个事件\n\tcountry_event = {\n\t\tid = my_mod_chain.2\n\t\tdays = 200\n\t\trandom = 100\n\t}\n\n\thidden_effect = {\n\t\tlog = \"my_mod: chain stage 1 fired\"\n\t}\n}"
+]
+
+relationships = [
+    "script-basics",
+    "scopes",
+    "triggers",
+    "variables"
+]
+
+validation = [
+    "在错误的作用域调用效果不会报错、也不会有任何事发生；先用 exists 确认作用域，再执行关键效果。",
+    "add_modifier 的 modifier 必须是 common/static_modifiers/ 或 common/event_modifiers/ 等处真实存在的键。",
+    "旗帜键与修正键都是自由命名，但不要与 vanilla 撞名；用 mod 前缀。",
+    "循环务必有界：while 必须有 count；while 的 count 可接受变量。",
+    "hidden_effect 只影响 tooltip，内部效果照常执行；tooltip = { } 里的语句不会执行。",
+    "调试时先看 error.log，再看 game.log（log = <string> 的输出去向）。"
+]
+
+source_refs = [
+    "https://stellaris.paradoxwikis.com/Effects",
+    "https://stellaris.paradoxwikis.com/Event_modding",
+    "https://stellaris.paradoxwikis.com/Dynamic_modding",
+    "https://stellaris.paradoxwikis.com/Conditions",
+    "vanilla（本机 4.1.7）：common/megastructures/habitats.txt（spawn_planet 完整用法）、common/megastructures/00_ring_world.txt:298、common/scripted_effects/00_scripted_effects.txt:16（print_scope_effect，log 用法）、common/inline_scripts/events/dynamic_resource_cost.txt（add_resource 的 mult = -1）、common/council_agendas/00_council_agendas_ethics.txt:270（mult = value:…）",
+    "Effects（效果总表与作用域列）",
+    "Event_modding（事件种类、days / random 延迟、scopes 覆盖）",
+    "Dynamic_modding（scripted effects、while、add_modifier 的 multiplier、flags）",
+    "Conditions（log 触发器的官方描述）"
+]
+
+title_zh = "效果（指令）"
+
+verified_version = "3.14 / 4.0"
+
+aliases = []

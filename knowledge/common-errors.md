@@ -1,0 +1,132 @@
+---
+id: common-errors
+category: debug
+title: Common Mod Loading Failures and Silent Errors
+title_zh: 常见加载失败与静默失效
+file_types: [localisation/*.yml, descriptor.mod, *.mod, events/*.txt, common/**/*.txt, interface/*.gfx]
+tags: [error.log, Object key already exists, localisation, BOM, replace_path, 00_prefix]
+related: [debugging-logs, validation-cwtools, gfx-interface]
+sources: [https://stellaris.paradoxwikis.com/Modding, https://stellaris.paradoxwikis.com/Modding_tutorial, https://stellaris.paradoxwikis.com/Localisation_modding, https://stellaris.paradoxwikis.com/Interface_modding, https://stellaris.paradoxwikis.com/Icon_modding]
+verified_version: "Modding 页 timeless（含 2.5+ 覆盖机制说明）；Localisation 页 3.1；Icon 页较新"
+---
+
+## 概要
+
+Stellaris 的失败模式分两类：**报错的**（`error.log` 有记录）和**静默失效的**（什么日志都没有，内容就是不出现）。多数"我改了但没用"属于第二类，根因通常是编码、文件名后缀、目录位置、覆盖顺序或缺失的本地化键。下表按"症状 → 原因 → 修法"列出，尽量给出 `error.log` 里的真实报错文本形态。
+
+排查顺序建议：① 模组目录路径是否**纯 ASCII**（含中文用户名会静默不挂载，见第 14 条）→ ② `descriptor.mod`/`path` 是否正确 → ③ 文件是否在**正确目录**、扩展名是否匹配加载规则 → ④ 编码（`.yml` = UTF-8 **with BOM**；`.gfx`/`.txt`/`.asset` = UTF-8 **无 BOM**）→ ⑤ 文件名前缀与覆盖顺序 → ⑥ 本地化键 → ⑦ 作用域与括号。
+
+判定"到底有没有被加载"的可靠手段：往模组里放一个**重复定义了 vanilla 单对象数据库键**的文件（例如 `common/map_modes/` 里重定义 `storm_map_mode`），引擎会写下
+`Object with key: storm_map_mode already exists, using the one at file: <你的文件>`。
+日志里出现你的文件名 = 模组确实挂载了；什么都没有 = 模组没被挂载（此时**不要**去怀疑脚本写法）。注意：`common/species_classes/` 之类的重复键是**静默覆盖**的，不能用来判断是否加载。
+
+## 症状 → 原因 → 修法 速查表
+
+| # | 症状 | 原因 | 修法 |
+| --- | --- | --- | --- |
+| 1 | 界面里显示原始 key（如 `my_civic`、`my_mod_evt.1.desc`），游戏不崩 | 本地化文件未被解析：无 BOM、首行缺 `l_english:`、每行没有前置空白、或文件名结尾不是 `_l_<language>` | 用 UTF-8 **with BOM** 保存；首行必须是 `l_english:`（或其他 `l_<lang>:`）；每个条目行**必须**以空白（空格/Tab）开头；文件名必须是 `<任意>_l_english.yml` 这类后缀。`_l_` 与语言名都不能少 |
+| 2 | 本地化整个文件完全无效，`error.log` 无明显条目 | `.yml` 存成了 UTF-8 **无** BOM | Stellaris 的 `.yml` 必须是 UTF-8-BOM，纯 UTF-8 会被拒绝解析。最省事的做法是复制一份 vanilla `.yml` 再改 |
+| 3 | 图标/事件图片/精灵全部消失，UI 空白或紫块，`.gfx` 里的 `spriteType` 全部无效 | `.gfx` 被存成 UTF-8 **with BOM** | `.gfx` 必须 UTF-8 **无 BOM**（与 `.yml` 相反）。改完用 `reload texture all`，改分辨率则重启 |
+| 4 | 自己写的 `00_civics.txt` / `00_something.txt` 一放进去，vanilla 同类内容大面积失效 | 用了 `00_` 这类与 vanilla **同名**的文件，直接覆盖了 vanilla 整个文件 | 文件名加模组唯一前缀，例如 `00_mymod_civics.txt`。所有文件都会被加载，名字只需唯一，不需要 `00_` 排序 |
+| 5 | `error.log` 出现 `Object key already exists`，实际生效的是"另一个"定义 | 重复键 / 命名冲突。Stellaris 多数 `common/` 类型是 **LIOS**（后加载者生效），少数是 FIOS；顺序按文件名的 ASCIIbetical 排序，再按启动器里的模组顺序 | 给所有 key 加模组前缀（`mymod_`）；同名文件改前缀；需要确定性覆盖时用 `dependencies = { ... }` 声明加载顺序 |
+| 6 | 内容在游戏里显示为 raw key 或干脆不显示，但脚本本身没错 | 缺 localisation 键。Stellaris **没有** fallback 语言机制 | 为每个 key 提供本地化；其他语言没有译文时直接复制英文文件并只改首行 `l_<lang>:` |
+| 7 | 事件从不触发；控制台 `event myns.1` 报事件不存在 | 事件 `id` 与 `namespace` 写错，或 namespace 未在任何 `namespace = <名>` 声明 | 事件 id 写成 `namespace.编号`；确保用 `namespace = my_mod_ns` 声明过；用控制台 `debug_dumpevents` / `eventstats` 辅助确认 |
+| 8 | 事件触发了但效果静默不执行 / 打日志才发现逻辑跳空 | 作用域用错，例如在 `planet_event` 里写 country 作用域指令，或在 country 作用域用 `owner` 语义 | 用 `logs/script_documentation/` 的文档确认每个效果/触发器的可用作用域；用 `log = "..."` 或 `eventscopes` 检查 scope 树；CWTools 也会报 scope 错误 |
+| 9 | 该文件里所有内容全部失效，报错指向文件末尾或下一文件 | 花括号不匹配（最常见：多一个 `}` 或少一个 `}`），Clausewitz 解析器就此断链 | 用编辑器的括号高亮/折叠功能逐个折叠检查；vanilla 用 **1 个 Tab** 缩进，按缩进层次核对；CWTools 会直接标出问题位置 |
+| 10 | 启动器里看不到模组，或模组列表里存在但内容不加载 | 缺 `descriptor.mod`，或 `<mod>.mod` 里缺/写错 `path` | `%USERPROFILE%\Documents\Paradox Interactive\Stellaris\mod\<mod>.mod` 需要 `name` 与 `path`；`mod\<mod>\descriptor.mod` 只需元数据（`path` 可省略、会被忽略）。路径用 **正斜杠 `/`**，不要用 `\` |
+| 11 | 本地文件夹里明明有模组，启动器却不认 | `path` 指向了错误的层级，或用了相对路径写法不对 | `path` 可以是绝对路径，也可以是相对 `…\Documents\Paradox Interactive\Stellaris` 的相对路径（如 `path="mod/MyMod"`）。启动器会把相对路径自动纠正为绝对路径 |
+| 12 | 加了 `replace_path` 后大量 vanilla 内容消失或与其他模组冲突 | `replace_path` 是"整个目录替换"的粗暴手段，会屏蔽其他模组与 DLC 对同目录的追加 | 除非确有必要（如完全重做某目录），优先"新增文件 + 同名覆盖单个文件"。同时订阅多个改动同目录的模组时，`replace_path` 会引发连锁失效 |
+| 13 | 启动器提示版本不匹配 | `supported_version` 与当前版本不一致 | 该字段**只影响加载器的视觉提示，不影响代码加载**。可写通配符，如 `supported_version="v3.13.*"`（最后一个数字可换成 `*`）。注意把第二个数字也通配会让启动器在 `error.log` 写一条警告，属噪音 |
+| 14 | 模组在启动器里可见、已被启用，`error.log` 里**一条相关记录都没有**，可内容就是不出现（不是报错，是彻底没效果） | **模组目录的路径含非 ASCII 字符**（典型场景：Windows 用户名是中文，于是 `C:\Users\钢木\Documents\Paradox Interactive\Stellaris\mod\<mod>`）。引擎会**正常解析** `<mod>.mod` 描述文件——所以你甚至能看到它报的 `Invalid supported_version`——但**从不挂载模组内容**，而且**不写任何日志**。4.4.6 实机对照验证：同一份模组放在 `<mods>\<mod>` 会被挂载（用重复键探针让引擎点名校验），原样放回 `C:\Users\<非ASCII>\...` 后立刻静默失效，其余变量完全相同 | 把模组**内容**放在纯 ASCII 路径（例如 `<mods>\<mod>`），只在 `Documents\Paradox Interactive\Stellaris\mod\` 里保留几行的 `<mod>.mod`，并把其中的 `path=` 指向那个 ASCII 目录。**不要**把内容留在含中文的用户名路径下 |
+| 15 | 在 Windows 上正常，在 Mac/Linux 上贴图或脚本找不到 | 文件名/目录名**大小写**不一致（Mac/Linux 大小写敏感） | `texturefile`、`icon =`、本地化文件名、目录名全部与代码中引用**逐字符一致**；统一用全小写 + 下划线 |
+| 16 | `.yml` 里某项之后的所有键都失效，或文本被截断 | `.yml` 缩进/引号错误：条目行未以空白开头、字符串未闭合引号、误用不合法 Unicode 字符 | 每个条目行以空格/Tab 开头；字符串用 `"` 包裹，内部引号转义为 `\"`；**避免**这些字符（会变成 `?`）：`„ “ ‚ ‘ – ” ’ … —` |
+| 17 | `£` 图标不显示，或文本从某处开始变色不恢复 | `£` 未成对（必须 `£energy£` 形式），或 `§` 颜色码未用 `§!` 恢复默认色 | `£` 码必须**成对包裹**；颜色码格式为 `§<单字符>`，结束时用 `§!` 复位；有 `£key|帧号£` 形式可指定精灵帧 |
+| 18 | 同名模组同时存在于本地与创意工坊订阅，改动不生效或启动器行为怪异 | 游戏**拒绝**加载同时以本地和工坊订阅形式存在的同一个模组 | 二选一：取消工坊订阅，或删掉本地 `mod\<mod>.mod` 与文件夹。上传自己的模组后再订阅它也会触发此问题 |
+| 19 | 升级 vanilla 补丁后，自己那份"复制并修改"的 vanilla 文件把新内容弄丢了 | 用同名文件整体覆盖了 vanilla（LIOS/FIOS 覆盖） | 用 WinMerge 之类的工具做三方合并；尽量只新增文件；必须覆盖时在注释里记录来源版本 |
+| 20 | 自定义窗口一打开游戏就崩溃 | 事件里 `custom_gui = "..."` 与某个 `containerWindowType` 的 `name` 不完全一致；或把 vanilla 自定义窗口的子元素删掉了 | 名字必须**完全一致**。**不允许删除**已存在的元素/容器，只能把 `size` 设为 0 或把 `position` 移到屏幕外隐藏 |
+| 21 | 事件图片不是圆角遮罩，而是直角矩形 | `.gfx` 里漏了 `masking_texture` | 加上 `masking_texture = "gfx/interface/situation_log/event_mask.dds"` 与 `alwaystransparent = yes` |
+| 22 | 本地化改了但界面上看不到变化 | 本地化表未重载 | 控制台 `reload text`；换语言用 `switchlanguage l_english`；找缺失 key 用 `toggle_string_id` |
+| 23 | 贴图内容改了但画面没变；或分辨率改了后显示错位 | `reload texture all` 只重载内容，**分辨率变更必须重启** | 改分辨率后完全重启游戏 |
+| 24 | GUI 元素不显示，或尺寸为 0 | `.gui` 里 `size` 用了错误的键组合（`x/y` 与 `width/height` 取决于元素类型），或 `position` 写了小数 | 按官方属性表选对键名；`position` **只支持整数** |
+| 25 | `.gui` 里的 `effect` 按钮点了没反应 | `effectButtonType` 的 `effect` 指向了不存在的 `/common/button_effects/` 键 | 在 `<mod>/common/button_effects/*.txt` 里定义该键；注意 `pdx_tooltip` 在 `effectButtonType` 上不生效，需在 button effect 里用 `custom_tooltip` |
+| 26 | 动态文本原样显示成 `[Root.GetName]` | 大多数 UI 元素**不处理**方括号 loc 命令 | 改用 `effectButtonType` 的 `buttonText`（这是唯一会处理 loc 命令的例外） |
+| 27 | 启动游戏后模组内容像是"少了一半" | 某个脚本文件因编码或括号问题被整文件丢弃，而错误只报在该文件附近 | 逐个文件排查编码；用 `-debug_mode` 提高日志量；把可疑文件临时移出以二分定位 |
+| 28 | `log` 效果只打印了一次，循环里的输出看不到 | 默认只记录**首次出现的相同消息** | 启动参数加 `-logall`；或让每次消息内容不同（带上 ID/计数） |
+| 29 | 自动生成的图标（科技/建筑）不显示 | 贴图不在自动目录，或文件名与实体 key 不一致 | 放到 `gfx/interface/icons/<类别>/` 并与 key **同名**；放进子文件夹时必须显式写 `icon = 子文件夹/文件名`（不带 `.dds`） |
+| 30 | 自定义文字图标 `£mykey£` 不显示 | `.gfx` 里 `name` 少了 `text_` 前缀，或 loc 里带了前缀 | 定义写 `name = "GFX_text_mykey"`，贴图放 `gfx/interface/icons/text_icons/`（16×16 `.dds`），loc 中写 `£mykey£`（**去掉** `GFX_text_` 前缀） |
+| 31 | 自定义旗帜分类显示为原始 key / AI 乱用你的徽记 | 缺 `FLAG_CATEGORY_<目录名>` 本地化，或缺 `flags/<目录>/usage.txt` | 加 `FLAG_CATEGORY_my_flags:0 "My Flags"`（名字等于 `flags/` 下子目录名）；加含 `random = no` 与 `show_in_designer = yes` 的 `usage.txt` |
+| 32 | 肖像在游戏里完全看不到 | 肖像只在 `gfx/portraits/portraits/*.txt` 定义，没登记进 `common/species_classes/` | 把肖像名加进 `common/species_classes/00_species_classes.txt`（或 `01_base_species_classes.txt`）对应物种类（如 `MAM = { portraits = { ... } }`）。未登记的肖像不会出现，也拿不到问候/侮辱语 |
+| 33 | 音乐包放进去后曲目表被清空 | 把自己的文件命名为 `songs.asset` / `songs.txt`，覆盖了 vanilla | 改成唯一的模组前缀名，如 `mymod_musicpack.asset` / `mymod_musicpack.txt` |
+| 34 | 编辑 AppData / Steam 里的 `settings.txt` 或其他玩家侧文件后改动丢失 | 这些文件不属于模组，会被游戏重写或校验 | 模组只放在 mod 目录；不要依赖修改玩家侧配置文件 |
+| 35 | 改了模组但启动后完全没变化 | 模组未在启动器的播放集里启用；或上表第 18 条的双重订阅冲突 | 检查启动器播放集顺序与勾选状态，确认没有本地+工坊重复 |
+
+## 文件位置与命名
+
+排查时"症状 ↔ 文件位置"的对照（细节见各条目）：
+
+| 症状类别 | 先看这些位置 |
+| --- | --- |
+| 模组在启动器里就不出现 | `…\Documents\Paradox Interactive\Stellaris\mod\<mod>.mod`（需 `name` + `path`）、`mod\<mod>\descriptor.mod` |
+| 显示 raw key / 文本缺失 | `<mod>/localisation/*_l_<language>.yml` |
+| 脚本/事件整文件失效 | `<mod>/events/*.txt`、`<mod>/common/**/*.txt` |
+| UI 元素空白、贴图丢失 | `<mod>/interface/*.gfx`、`<mod>/interface/*.gui`、`gfx/**/*.dds` |
+| 旗帜 / 图标 / 肖像不出现 | `<mod>/flags/<分类>/`、`gfx/interface/icons/**`、`gfx/portraits/portraits/*.txt`、`common/species_classes/` |
+| 曲目表被清空 | `<mod>/music/*.asset`、`<mod>/music/*.txt` |
+| 冲突/覆盖顺序 | `<mod>.mod` 里的 `dependencies = { ... }`；文件名的 ASCIIbetical 排序 |
+
+## 语法与字段
+
+三类"最小正确写法"，出错频率最高，逐字段核对：
+
+```pdx
+# ① mod/<mod>.mod —— 必须有 name 与 path；path 用正斜杠
+name="My Mod"
+path="mod/MyMod"
+tags={
+	"Gameplay"
+}
+supported_version="v3.13.*"
+
+# ② mod/<mod>/descriptor.mod —— 只要元数据，path 可省略（会被忽略）
+name="My Mod"
+supported_version="v3.13.*"
+```
+
+```pdx
+# ③ localisation/my_mod_l_english.yml —— UTF-8 with BOM
+#    文件名必须 _l_english 结尾；首行必须是 l_english:；每条目前置空白
+l_english:
+ my_mod_thing:0 "My Thing"
+ my_mod_thing_desc:0 "Description shown in the tooltip."
+```
+
+`.yml` 的编号（`:0`）可省略，仅 Paradox 内部翻译跟踪用。字符串内要显示引号写 `\"`；`$key$` 引用其他本地化键；`£energy£` 引用图标（**必须成对**）；`§Y...§!` 是颜色码（**必须用 `§!` 复位**）。
+
+## 校验要点
+
+- **编码规则只有两条，但方向相反，最容易记反**：`.yml` = UTF-8 **with BOM**；`.gfx` / `.txt` / `.asset` = UTF-8 **无 BOM**。
+- **加载规则**：`common/`、`events/` 等目录是"目录内所有文件都会被加载"，文件名只决定顺序，因此**永远不要复用 vanilla 文件名**。
+- **覆盖语义**：多数 `common/` 类型是 LIOS，`error.log` 会写 `Object key already exists`；但该错误出现**不代表覆盖失败**（其行为本身就不稳定，官方标注未文档化）。
+- **本地化三件套**：文件名后缀 `_l_<lang>`、首行 `l_<lang>:`、每行前置空白。缺一个就静默失效。
+- **作用域**：先在 `logs/script_documentation/` 里确认字段与作用域，再写代码。
+
+## 常见错误
+
+本表本身即为常见错误清单。实践中最高频的三条是：① `.yml` 编码（第 1、2 条）② 复用 `00_` vanilla 文件名（第 4 条）③ 缺本地化键（第 6 条）。
+
+## 待确认
+
+- 官方 `error.log` 的**逐字报错文本**大多未在 Wiki 上收录，表中仅 `Object key already exists` 与 `Object with key already exists` 有页面明示（后者用于注记"该覆盖仍然生效"的情形）。其余条目的报错措辞为描述性，**不要拿本表的措辞去 grep 日志**，应按关键词（`already exists`、`Localisation`、`Unknown`）搜索。
+- `replace_path` 在 Stellaris 中的精确语法与语义：未在 Stellaris 官方 Wiki 上取得明确说明，本表只给出使用建议。**待确认**。
+- 启动器"同时本地与工坊订阅会拒绝加载"官方原文为 "If you have a mod both as a local and as a workshop subscription game will refuse to load it."，具体表现（报错文本/静默）未说明。
+- 哪些 `common/` 子目录是 FIOS、哪些是 LIOS：官方表格中大量条目标为 ❓，未完整。
+- 中文/日文/韩文等语言是否同样只需复制英文文件即可避免 raw key，官方页面只说"没有 fallback 机制"，未确认中文的具体表现。
+
+## 参考
+
+- [Modding（Guidelines / 覆盖机制 / common 覆盖表 / mod 文件结构）](https://stellaris.paradoxwikis.com/Modding)
+- [Modding tutorial（descriptor 文件 / 本地化 / 日志）](https://stellaris.paradoxwikis.com/Modding_tutorial)
+- [Localisation modding（编码、命名、覆盖、特殊字符）](https://stellaris.paradoxwikis.com/Localisation_modding)
+- [Interface modding（custom_gui 崩溃条件、guiTypes）](https://stellaris.paradoxwikis.com/Interface_modding)
+- [Icon modding（自动精灵目录与 .gfx 无 BOM 要求）](https://stellaris.paradoxwikis.com/Icon_modding)
+- [Flag modding（usage.txt / FLAG_CATEGORY / 贴图规格）](https://stellaris.paradoxwikis.com/Flag_modding)

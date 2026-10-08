@@ -1,0 +1,7 @@
+﻿l_english:
+ vanadic:0 "Vanadic Organisms"
+ vanadic_plural:0 "Vanadic Organisms"
+ VANADIC:0 "Vanadic Organisms"
+ VANADIC_plural:0 "Vanadic Organisms"
+ trait_vanadic:0 "Vanadic Metalloenzymes"
+ trait_vanadic_desc:0 "Vanadium replaces the magnesium and iron centres of this species' metalloenzymes. Nitrogenase, peroxidase and the electron-transfer proteins that once relied on magnesium-iron clusters now carry vanadium instead: its many oxidation states move electrons efficiently at ambient temperature and pressure, and vanadium nitrogenase fixes nitrogen without high-pressure chemistry.\n\nThe cost is that a vanadium centre assembles more slowly than an iron-sulfur cluster, and depends on a steady supply of vanadate from the environment."

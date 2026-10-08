@@ -1,0 +1,71 @@
+id = "mod-structure"
+
+title = "Mod Structure and Load Order"
+
+category = "structure"
+
+file_types = [
+    "descriptor.mod",
+    "modname.mod",
+    "common/",
+    "events/",
+    "localisation/",
+    "gfx/",
+    "interface/"
+]
+
+tags = [
+    "descriptor",
+    "mod-folder",
+    "load-order",
+    "launcher",
+    "replace",
+    "workshop"
+]
+
+body = """
+## 概要\n\n一个能被 2.4+ 启动器识别并加载的本地模组，由**两个同名不同位置的 descriptor 文件**组成：mod 目录下的 `<modname>.mod`（启动器读取，**必须**包含 `path`）和模组根目录下的 `descriptor.mod`（2.4+ 启动器必需，**不要**写 `path`）。模组根目录内部**必须镜像游戏安装目录的文件夹名**（`common/`、`events/`、`localisation/`、`gfx/`、`interface/` 等），游戏按目录名加载，文件本身叫什么名字都可以。永远不要直接改 Steam 安装目录下的 vanilla 文件：更新会覆盖，且你的改动不会进模组。\n\n## 文件位置与命名\n\n| 来源 | 位置 |\n| --- | --- |\n| 本地模组（Windows） | `…\\Documents\\Paradox Interactive\\Stellaris\\mod` |\n| 本地模组（Linux） | `~/.local/share/Paradox Interactive/Stellaris/mod` |\n| 本地模组（macOS） | `~/Documents/Paradox Interactive/Stellaris/mod` |\n| Steam 创意工坊 | `…\\SteamLibrary\\SteamApps\\workshop\\content\\281990`（以工坊 ID 命名） |\n| Paradox Mods | 放在 mod 目录下，命名为 `PDX_<MOD_ID>` |\n\n必须存在的结构：`mod\\<modname>.mod` 与 `mod\\<modname>\\descriptor.mod`。2.4+ 启动器**优先**读 `descriptor.mod`，并把 `mod\\` 下那个 `.mod` 改写成与它一致；找不到 `descriptor.mod` 时才退回用 `.mod` 的信息。从创意工坊下载回来的 `.mod` 不含 `path`，而是 `archive=\"mod/<modname>.zip\"`。文件夹与文件名在 macOS/Linux 上**区分大小写**。\n\n实机核对 4.1.7：游戏安装目录顶层与模组相关的目录是 `common` `events` `flags` `fonts` `gfx` `interface` `localisation` `map` `music` `prescripted_countries` `sound`；`common/` 下有 **159 个子目录 + 4 个文件**，`events/` 有 163 个文件，`interface/` 有 282 个文件，`gfx/` 有 21 个子目录。模组根目录只需镜像自己真正要用的那几个。用户目录（`…\\Documents\\Paradox Interactive\\Stellaris`）里 `dlc_load.json` 记录当前播放集与 DLC 开关，形如 `{\"enabled_mods\":[\"mod/ugc_2409209888.mod\",…],\"disabled_dlcs\":[]}`；`launcher-v2.sqlite` 是启动器的播放集数据库。手工排查\"模组到底有没有被启用\"时先看 `dlc_load.json`。\n\n`localisation/` 下**不建**语言子目录完全合法（子目录只是便于整理），也可以再往下嵌套（vanilla 就在 `localisation/english/name_lists/` 下放文件）；但文件名必须符合 `<name>_l_<language>.yml`。只覆盖个别 key 的本地化放进 `localisation/replace/`，它最后加载（实机确认真实模组在用这个目录）。\n\n## 语法与字段\n\n本地模组两个 descriptor（内容几乎相同，差别只有 `path`）：\n\n\n\n从创意工坊下载后启动器改写的形态：\n\n\n\n模组根目录必须镜像游戏目录：\n\n\n\n要确认某个 `common/` 子目录名是否真实存在，直接列游戏安装目录，不要凭记忆写：\n\n## 常见错误\n\n- 只创建了 `descriptor.mod` 或只创建了 `<modname>.mod`：前者让启动器看不到模组，后者让模组在 2.4+ 启动器里信息不全。\n- `path` 里用反斜杠（`path=\"mod\\\\myscribe\"`）：Stellaris 只认 Unix 斜杠。\n- 把模组目录塞进游戏安装目录（`SteamApps\\common\\Stellaris\\mod`）：不会正确加载。\n- 手工安装时多套了一层文件夹（变成 `mod\\MyMod\\MyMod\\...`）：启动器报找不到模组。\n- 期望\"本地版 + 工坊订阅版\"共存来自动覆盖：游戏直接拒绝加载该模组。\n- 依赖关系写反：以为列在 `dependencies` 里就能覆盖对方，实际上只保证自己**排在对方之后**加载。\n\n## 待确认\n\n- 覆盖规则中 FIOS/LIOS 的逐目录清单（wiki 的 Overwriting specific elements 表）明确标注\"该特性未文档化，可能随版本任意变化\"，且表中大量条目标为 ❓；本条目只陈述通用结论，不逐目录断言。\n- \"以 `~` 开头的模组排到最前、以 `!` 开头的排到后面\"来自 wiki 的 Mod load order 小节，未说明它作用于 `.mod` 文件名、模组显示名还是集合顺序；未实测。\n- `localisation/replace/` 之外是否还存在其他被引擎特殊对待的 `replace` 目录（例如 `common/` 下）未查到官方说明。\n- 加载顺序的\"ASCIIbetical 文件名顺序\"说明来自 2.5 版本时代的 wiki 段落并带有\"请协助核实\"标记，3.14/4.x 是否保持未验证。\n- 实机看到 `dlc_load.json` 的 `enabled_mods` 是一个有序数组（`mod/ugc_*.mod` 路径），顺序与启动器中的播放集一致；但**引擎实际按什么顺序处理这些模组**无法从该文件证明，故不把它当作加载顺序依据。\n- **已推翻**：wiki《Modding tutorial》把 `/localisation_synced/` 列为玩家可读文本目录；实机遍历 4.1.7 安装目录（含一层子目录）不存在任何 `*synced*` 目录。\n- 覆盖顺序与 `~`/`!` 前缀规则均来自 wiki（含\"未文档化、可能随版本变化\"的免责声明），未在 4.1.7 实测；Agent 若要写兼容补丁，应依赖 `dependencies` 而不是文件名技巧。
+"""
+
+syntax_blocks = [
+    "name=\"My Scribe\"\nversion=\"1.0.0\"\nsupported_version=\"v3.14.*\"\npath=\"mod/myscribe\"\ntags={\n\t\"Gameplay\"\n\t\"Events\"\n}\npicture=\"thumbnail.png\"\ndependencies={\n\t\"My Framework Mod\"\n}",
+    "name=\"My Scribe\"\narchive=\"mod/myscribe.zip\"",
+    "myscribe/\n    descriptor.mod          # 2.4+ 启动器必需，不写 path\n    thumbnail.png           # 2.4+ 缩略图固定用这个名字\n    common/                 # 定义类数据；4.1.7 vanilla 下有 159 个子目录，例如\n                            #   governments/ traits/ pop_jobs/ buildings/ districts/\n                            #   scripted_effects/ scripted_triggers/ scripted_loc/\n                            #   scripted_variables/ on_actions/ game_concepts/ ...\n    events/                 # 事件定义（4.1.7 vanilla 163 个文件）\n    localisation/           # 或 localisation/<language>/；replace/ 子目录最后加载\n    gfx/                    # 图片资源（4.1.7 vanilla 21 个子目录）\n    interface/              # *.gfx / *.gui（4.1.7 vanilla 282 个文件）",
+    "Get-ChildItem -Directory \"D:\\SteamLibrary\\steamapps\\common\\Stellaris\\common\" | Select-Object -ExpandProperty Name"
+]
+
+relationships = [
+    "mod-metadata",
+    "localisation-basics"
+]
+
+validation = [
+    "mod 目录下存在 <modname>.mod，且其中 path=\"mod/<modname>\"；路径用正斜杠 /，不用 \\ 或 \\\\。",
+    "模组根目录存在 descriptor.mod，且没有 path 字段（写了也被忽略）。",
+    "根目录下每个子目录名与游戏安装目录中的名字逐字一致（localisation 用 s 拼写，不是 localization）。",
+    "path 相对路径以 …\\Documents\\Paradox Interactive\\Stellaris 为基准；启动器不会找到写在别处（如游戏安装目录）的模组。",
+    ".mod 与 descriptor.mod 的 name 一致，否则启动器会以 descriptor.mod 为准并改写 .mod。",
+    "同一模组不同时以本地文件和创意工坊订阅两种形式存在：游戏会拒绝加载同名模组。",
+    "修改了 vanilla 同名文件时，确认自己确实要整文件覆盖，而不是新增一个不同名文件（新增文件即可被加载，无需覆盖）。",
+    "需要单个本地化 key 覆盖 vanilla 时，文件放在 localisation/replace/，而不是整文件同名覆盖。",
+    "每个用到的 common/ 子目录名都能在安装目录 Get-ChildItem -Directory 的输出里找到（如 governments、traits、pop_jobs、scripted_effects、scripted_loc、scripted_variables、on_actions、game_concepts）；名字打错等于整份文件不加载。",
+    "不创建 localisation_synced/：4.1.7 安装目录下不存在该目录（遍历确认），只有 localisation。",
+    "排查\"模组没生效\"时，先确认 dlc_load.json 的 enabled_mods 数组里存在 mod/<modname>.mod 这一项。"
+]
+
+source_refs = [
+    "https://stellaris.paradoxwikis.com/Modding",
+    "https://stellaris.paradoxwikis.com/Mods",
+    "https://stellaris.paradoxwikis.com/Steam_Workshop",
+    "https://stellaris.paradoxwikis.com/Modding_tutorial",
+    "Modding（模组目录、文件与文件夹结构、加载顺序、Overwriting specific elements）",
+    "Mods（安装位置、手工安装流程、常见错误）",
+    "Steam Workshop（上传流程、下载后 .mod 变成 archive=）",
+    "Modding tutorial（两个 descriptor 的最小示例、本地与工坊版冲突）"
+]
+
+title_zh = "模组结构与加载顺序"
+
+verified_version = "实机核对 Stellaris 4.1.7 (Lyra)：D:\\\\SteamLibrary\\\\steamapps\\\\common\\\\Stellaris 与用户 mod 目录；Modding 页为 timeless 页"
+
+aliases = []

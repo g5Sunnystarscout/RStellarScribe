@@ -1,0 +1,103 @@
+# ------------------------------------------------------------------------------------
+# Script behind the aerospace carrier's hand-written bridge window.
+#
+# Field manual: common/button_effects/example.txt -
+#   "Scope type varies depending on what is selected.
+#    This = selected object (if planet, ship, fleet, system, ambient object, megastructure,
+#           federation, espionage operation, arc site or first contact) or player country
+#    From = player country
+#    Note: it's advised to check is_scope_type = ship/whatever in the allow trigger, since
+#          it's possible to confuse the scopes if multiple interfaces are open."
+#
+# So each button below checks the scope in `allow`, and uses `from` to reach the country.
+# ------------------------------------------------------------------------------------
+
+aerospace_carrier_button_muster_army = {
+	potential = {
+		is_scope_type = ship
+	}
+	allow = {
+		is_ship_size = aerospace_carrier
+		from = {
+			NOR = {
+				has_country_flag = aerospace_carrier_mustering
+			}
+		}
+		custom_tooltip = {
+			fail_text = AEROSPACE_CARRIER_FAIL_NOT_CARRIER
+			is_ship_size = aerospace_carrier
+		}
+	}
+
+	effect = {
+		create_army = {
+			name = "aerospace_carrier_mustered_army"
+			owner = from
+			species = from
+			type = assault_army
+		}
+		from = {
+			set_country_flag = aerospace_carrier_mustering
+		}
+	}
+}
+
+aerospace_carrier_button_robotic_army = {
+	potential = {
+		is_scope_type = ship
+	}
+	allow = {
+		is_ship_size = aerospace_carrier
+		from = {
+			has_technology = tech_robotic_workers
+			custom_tooltip = {
+				fail_text = AEROSPACE_CARRIER_FAIL_ALLOYS
+				resource_stockpile_compare = {
+					resource = alloys
+					value >= 100
+				}
+			}
+		}
+	}
+
+	effect = {
+		from = {
+			add_resource = {
+				alloys = -100
+			}
+		}
+		create_army = {
+			name = "aerospace_carrier_robotic_army"
+			owner = from
+			species = from
+			type = robotic_army
+		}
+	}
+}
+
+aerospace_carrier_button_bombardment = {
+	potential = {
+		is_scope_type = ship
+	}
+	allow = {
+		is_ship_size = aerospace_carrier
+		from = {
+			resource_stockpile_compare = {
+				resource = energy
+				value >= 100
+			}
+		}
+	}
+
+	effect = {
+		from = {
+			add_resource = {
+				energy = -100
+			}
+		}
+		add_modifier = {
+			modifier = aerospace_carrier_bombardment_ready
+			days = 365
+		}
+	}
+}

@@ -1,0 +1,67 @@
+id = "ai-weights"
+
+title = "AI Weights and Weight Modifiers"
+
+category = "script"
+
+file_types = [
+    "common/technology/*.txt",
+    "common/decisions/*.txt",
+    "common/buildings/*.txt",
+    "common/traditions/*.txt",
+    "common/colony_types/*.txt",
+    "common/resolutions/*.txt"
+]
+
+tags = [
+    "ai_weight",
+    "weight_modifier",
+    "ai_will_do",
+    "factor",
+    "add",
+    "random_list"
+]
+
+body = """
+## 概要\n\n`ai_weight`、`weight_modifier`、`ai_will_do` 都是\"给 AI 打分\"的权重块，但**不是同一个东西、也不共享同一套起始键**：`ai_weight` 是 AI 专用评估块，起始值写 `base = X`（本机多数文件，如 `common/armies/*.txt`）或 `weight = X`（如 `common/astral_actions/astral_planes_actions.txt`），随后跟任意多个 `modifier = { ... }`；`weight_modifier` 出现在科技、殖民地类型等\"候选被抽签\"的对象上，起始值写 `factor = X`，也可只写 `modifier` 列表（本机 `common/colony_types/00_colony_types.txt` 就是纯 `modifier` 写法）；`ai_will_do` 是决定触发式决策/事件选项时 AI 是否执行。三者内部的 `modifier` 块共用同一套数学枚举：`set`、`weight`、`add`、`subtract`、`factor`、`mult`、`multiply`、`divide`、`modulo`、`round_to`、`max`、`min`、`pow`，以及 `round`、`ceiling`、`floor`、`abs`、`square`、`square_root`（后一组写 `round = yes`）。最关键的一条纪律：**权重不等于概率**。\n\n## 文件位置与命名\n\n- 权重块写在**被评估对象内部**，没有独立目录：`common/technology/*.txt`（`weight` + `weight_modifier`）、`common/buildings/*.txt`、`common/districts/*.txt`、`common/decisions/*.txt`、`common/traditions/*.txt`、`common/ascension_perks/*.txt`、`common/armies/*.txt`、`common/colony_types/*.txt`、`common/resolutions/*.txt`、`common/pop_jobs/*.txt`。\n- 典型起始键对照（本机实测）：科技用 `weight = <int>` + `weight_modifier = { factor = <float> modifier = { ... } }`（见 `common/technology/000_documentation.txt`）；军队与决议常用 `ai_weight = { base = <int> modifier = { ... } }`；事件选项用 `ai_chance = { factor = 100 modifier = { factor = 0 ... } }`。\n- 修饰块里的条件在该对象所属作用域上求值（科技/国家决策看国家，建筑/区划看星球，岗位看人口），写跨作用域条件要自己加 `owner = { ... }`。\n\n## 语法与字段\n\n`ai_weight` 的完整形态与排除法：\n\n\n\n科技权重（起始 `factor` 与内联 `factor` 的坑）：\n\n\n\n只写 `modifier` 列表的 `weight_modifier`（本机 `common/colony_types/00_colony_types.txt` 的真实形态）：\n\n\n\n概率类脚本（独立于权重块，别与 AI 权重混淆）：\n\n## 常见错误\n\n- 在 `ai_weight` 里把起始键写成 `factor`，或在科技 `weight_modifier` 里写 `base`：起始键写错时整块被忽略或权重归零，AI 永远不选。\n- 用 `factor = 0` 排除，但同块或后续块里还有 `add`，导致仍会被选中。\n- 认为 `ai_weight` 会影响人类玩家的界面：它是 AI 专用，玩家看到的可选性由 `potential` / `trigger` / `allow` 决定。\n- 把 `random_list` 的权重当成 `ai_weight` 用（前者是分数池抽签，后者是 AI 决策打分）。\n- 给带参脚本化效果当权重却漏参数，导致权重计算结果为 0 或语法错误。\n- 修改本体权重块时复制不完整（漏掉 `OR = { }` 的一个分支），使 AI 行为出现难以定位的偏移。\n\n## 待确认\n\n- `ai_weight` 起始键的完整集合：本机同时观察到 `base =`（军队、决议、解决方法等）与 `weight =`（星界行动）。两者是否在所有对象类型上等价、是否有哪个目录只接受其中一种，未逐一实测。\n- 各系统对最终权重的消费方式（取最大值 / 加权随机 / 附加扰动）没有集中文档；wiki `AI_modding` 页最后核对版本为 3.0，与 4.1.7 可能存在差异。\n- `ai_will_do` 与 `ai_weight`、`ai_chance` 的确切适用位置未逐一验证（本机各目录中都有出现），本条只保证键名与内部运算字段的准确性。
+"""
+
+syntax_blocks = [
+    "# common/decisions/zz_my_mod_decisions.txt\nmy_mod_decision = {\n\t# ... potential / effect 略 ...\n\tai_weight = {\n\t\tbase = 100\n\t\tmodifier = {\n\t\t\tadd = 50\n\t\t\thas_ethic = ethic_militarist\n\t\t}\n\t\tmodifier = {\n\t\t\tfactor = 2\n\t\t\tOR = {\n\t\t\t\thas_policy_flag = unrestricted_wars\n\t\t\t\thas_ethic = ethic_fanatic_militarist\n\t\t\t}\n\t\t}\n\t\tmodifier = {\n\t\t\tfactor = 0\n\t\t\thas_ethic = ethic_fanatic_pacifist\n\t\t}\n\t}\n}",
+    "# common/technology/zz_my_mod_tech.txt\ntech_my_mod_example = {\n\tarea = physics\n\ttier = 1\n\tcost = 1000\n\tweight = 100\n\tweight_modifier = {\n\t\tfactor = 0.5           # 基础系数\n\t\tmodifier = {\n\t\t\tfactor = 2\n\t\t\thas_technology = tech_my_mod_prereq\n\t\t}\n\t\tmodifier = {\n\t\t\tfactor = 0\n\t\t\thas_country_flag = my_mod_banned_tech\n\t\t}\n\t}\n}",
+    "weight_modifier = {\n\tmodifier = {\n\t\tadd = @stickiness_low\n\t\thas_designation = col_city\n\t}\n\tmodifier = {\n\t\tmult = 2\n\t\tnum_zones = { type = zone_trade value > 0 }\n\t}\n}",
+    "# random_list：按权重抽一项，权重可以用 modifier 动态调整\nrandom_list = {\n\t50 = { add_resource = { minerals = 100 } }\n\t30 = { add_resource = { energy = 100 } }\n\t20 = { add_resource = { influence = 50 } }\n}",
+    "# 一次性概率判定\nrandom = {\n\tchance = 25\n\tadd_resource = { unity = 50 }\n}"
+]
+
+relationships = [
+    "scripted-effects-triggers",
+    "on-actions",
+    "game-rules"
+]
+
+validation = [
+    "权重 ≠ 概率。权重只决定\"排序中谁更靠前\"或\"抽签池里的相对份额\"，不同系统用法不同（有的取最高值，有的按权重随机，还有内置扰动），不能把 base = 100 理解成 100% 或\"百倍概率\"。",
+    "modifier 块按书写顺序依次生效：先 base/factor 起始，再逐块 add/factor/set…。因此 factor = 0 之后若还有其他 add，最终值会变成非零——想彻底排除，factor = 0 必须放在所有 add 之后，或直接用 set = 0（本机 common/armies/01_assault_armies.txt 就用 set = 0）。",
+    "一个 modifier 块内的多个条件默认是 AND；要 OR/NOT 必须显式写 OR = { } / NOT = { }。",
+    "factor 可连乘，数值会迅速膨胀（5 连乘 6 次 factor = 2 得 320），factor 与 add 都接受负数。",
+    "weight_modifier 顶层再写一个 factor = X 会覆盖基础系数而不是相乘（本机科技文档明确：\"weight and factor will instead overwrite the base value\"）。",
+    "新加的内容必须补权重：新建筑/新岗位没有 ai_weight 时 AI 很可能永远不用；新特质/新加成若没有让相关岗位权重感知，AI 会把人派到不最优的岗位上。",
+    "校验方式：把候选对象的权重块与本体同类对象逐个对照（键名、起始键、是否有 base/weight/factor），不要跨目录套用；用 -debug_mode 观察 AI 实际选择。"
+]
+
+source_refs = [
+    "https://stellaris.paradoxwikis.com/AI_modding",
+    "https://stellaris.paradoxwikis.com/Dynamic_modding",
+    "https://github.com/cwtools/cwtools-stellaris-config/blob/master/config/modifier_rule.cwt",
+    "AI modding（AI Weights / Modifying ai_weight / Forbidding an AI from an action）",
+    "Dynamic modding（script_values 与同一套数学枚举）",
+    "本机 Stellaris/common/technology/000_documentation.txt、common/armies/01_assault_armies.txt、common/colony_types/00_colony_types.txt、common/astral_actions/astral_planes_actions.txt（4.1.7 实例）",
+    "cwtools-stellaris-config: config/modifier_rule.cwt（complex_maths_enum 全量数学字段）"
+]
+
+title_zh = "AI 权重与权重修饰块"
+
+verified_version = "本机正式版 4.1.7 (Lyra) 实际文件核对；wiki AI_modding 页标注 3.0"
+
+aliases = []

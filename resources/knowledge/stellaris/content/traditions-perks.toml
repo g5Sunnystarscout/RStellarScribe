@@ -1,0 +1,58 @@
+id = "traditions-perks"
+
+title = "Traditions and Ascension Perks"
+
+category = "content"
+
+file_types = [
+    "common/tradition_categories/*.txt",
+    "common/traditions/*.txt",
+    "common/ascension_perks/*.txt"
+]
+
+tags = [
+    "tree_template",
+    "adoption_bonus",
+    "finish_bonus",
+    "possible",
+    "potential",
+    "modifier",
+    "on_enabled",
+    "tradition_swap",
+    "ai_weight"
+]
+
+body = """
+> **4.4.6 更正**：本条目早期版本称传统描述键是 `<key>_desc`。对 234 个传统本地化键的全量核对显示，传统描述键是\n> **`<key>_delayed`**；`_desc` 只对**飞升天赋**成立，且对传统仅在 `custom_tooltip` 引用时才生效。详见 `tradition-trees` 条目。\n\n## 概要\n\n传统体系分三层：**传统树**（tradition category，`common/tradition_categories/`）、**单条传统**（`common/traditions/`）、**飞升天赋**（`common/ascension_perks/`）。采纳奖励与完成奖励本身也是\"传统\"，只是没有图标和 ai_weight。游戏内权威文档是 `common/traditions/99_README_TRADITIONS.txt`、`common/tradition_categories/99_README_TRADITION_CATEGORIES.txt`；飞升天赋文件头直接指向 traditions 的 README（`00_ascension_perks.txt:1` 写 \"See traditions/README.txt for format\"）。\n\n## 文件位置与命名\n\n- `common/tradition_categories/*.txt`：4.1.7 共 33 个文件，`tree_template` 33 处、`adoption_bonus` 34 处、`finish_bonus` 34 处、`traditions =` 33 处。\n- `common/traditions/*.txt`：4.1.7 共 34 个文件，`possible` 125 处、`modifier` 166 处、`on_enabled` 40 处、`ai_weight` 140 处、`unlocks_agenda` 31 处、`custom_tooltip` 109 处、`tradition_swap` 200 处。\n- `common/ascension_perks/*.txt`：`potential` 46 处、`possible` 34 处、`on_enabled` 37 处、`modifier` 32 处、`ai_weight` 46 处、`tradition_swap` 7 处。\n- 三者覆盖类型均为 **LIOS**（`tradition_categories`、`traditions` 会记 `Object key already exists`；`ascension_perks` 自 3.0 起不再记错）。注意 `common/ascension_perk_categories/` 这个目录在 4.1.7 **已不存在**（3.x Wiki 的 Common folder 表里还有），飞升天赋按 `00_ascension_paths.txt` / `00_ascension_perks.txt` 分文件。\n\n## 语法与字段\n\n传统树（4.1.7）：`tree_template`（字符串，值指向 `interface/topbar_traditions_view.gui` 中定义的模板，如 `\"tree_11_12\"`）、`adoption_bonus`、`finish_bonus`（都必须是**已定义的传统键**）、`traditions = { \"tr_a\" \"tr_b\" ... }`、`potential`（28 处）、`ai_weight`（33 处）。后两者未写进 `99_README_TRADITION_CATEGORIES.txt`，但 vanilla 普遍使用。\n\n单条传统（README 与 vanilla 均已核对）：`possible`（AND trigger，country scope，**门控前置传统就用它**）、`potential`（AND trigger，country scope；vanilla 实例见 `00_adaptability.txt:5`、`01_virtuality.txt:20`，README 第 3 行也有）、`unlocks_agenda`、`modifier`、`triggered_modifier`、`on_enabled`、`on_disabled`（放弃传统时触发，4.x 新增）、`ai_weight`、`custom_tooltip`、`custom_tooltip_with_modifiers`、`tradition_swap`（内 `name`、`inherit_effects`、`inherit_icon`、`inherit_name`、`trigger`、`modifier`、`triggered_modifier`、`on_enabled`、`weight`、`custom_tooltip`）。README 明确 `inherit_effects` / `inherit_icon` / `inherit_name` 的**默认值是 no**。传统**没有** `prerequisites` 字段。\n\n飞升天赋：字段与传统相同，但用 `potential`（是否出现在选择列表，通常要排除已选：`NOT = { has_ascension_perk = ap_x }`）与 `possible`（是否可选）。\n\n## 常见错误\n\n1. 给传统写 `prerequisites`——不存在该字段；前置关系写在 `possible = { has_tradition = ... }`（`tr_diplomacy_entente_coordination` 即如此）。\n2. `adoption_bonus` / `finish_bonus` 填了不存在的键，或忘了把两者对应条目写进 `common/traditions/`。\n3. 忘记 `inherit_icon = yes`，导致传统在换皮后没有图标（4.1.7 中 `inherit_*` 默认 **no**）。\n4. 只写 `modifier` 就以为 UI 会显示效果文本——4.x 的效果提示是独立的，需要 `custom_tooltip` / `custom_tooltip_with_modifiers` 或 `_desc` 本地化；游戏也不会因为缺少文本报错。\n5. 沿用旧 Wiki 的 `tradition_categories` 上的 `tradition_swap`——该字段在分类上已废弃，换皮写在单条传统上。\n\n## 待确认\n\n- `on_disabled`（4.1.7 仅 1 处）与新效果的具体语义未逐条核对。\n- 4.0/BioGenesis 的\"基因飞升传统可混搭\"（Purity / Cloning / Mutation）在文件层面表现为新增 `01_purity.txt`、`01_cloning.txt`、`01_mutation.txt` 与 `02_flexible_dummy.txt`；其混搭规则是否由数据驱动、还是硬编码，未确认。\n- 3.x 时代的 `tr_x_swapped` / `_swapped_desc` / `_swapped_delayed` 命名是否仍完全适用：4.1.7 vanilla 的换皮键多用 `<原键>_gestalt` 等自定义后缀，未见 `_swapped` 用法。
+"""
+
+syntax_blocks = [
+    "# common/tradition_categories/zz_tidal_category.txt\ntradition_tidal = {\n\ttree_template = \"tree_11_12\"\n\tadoption_bonus = \"tr_tidal_adopt\"\n\tfinish_bonus = \"tr_tidal_finish\"\n\ttraditions = {\n\t\t\"tr_tidal_survey_grid\"\n\t\t\"tr_tidal_pressure_hulls\"\n\t\t\"tr_tidal_deep_currents\"\n\t}\n\n\tpotential = {\n\t\tNOT = { has_valid_civic = civic_environmentalist }\n\t}\n\n\tai_weight = {\n\t\tfactor = 5\n\t\tmodifier = {\n\t\t\tfactor = 0\n\t\t\tis_gestalt = yes\n\t\t}\n\t}\n}\n\n# common/traditions/zz_tidal_traditions.txt\ntr_tidal_adopt = {\n\tunlocks_agenda = agenda_chart_the_unknown\n\tcustom_tooltip_with_modifiers = tr_tidal_adopt_desc\n\tmodifier = {\n\t\tcountry_starbase_influence_cost_mult = -0.15\n\t}\n}\n\ntr_tidal_finish = {\n\tmodifier = {\n\t\tascension_perks_add = 1\n\t\tplanet_jobs_energy_produces_mult = 0.10\n\t}\n}\n\ntr_tidal_survey_grid = {\n\tmodifier = {\n\t\tscience_ship_survey_speed = 0.25\n\t}\n\tai_weight = { factor = 1000 }\n}\n\ntr_tidal_pressure_hulls = {\n\tpossible = {\n\t\thas_tradition = tr_tidal_survey_grid\n\t}\n\tmodifier = {\n\t\tship_hull_mult = 0.10\n\t}\n\tcustom_tooltip = tr_tidal_pressure_hulls_desc\n\n\ttradition_swap = {\n\t\tname = tr_tidal_pressure_hulls_gestalt\n\t\tinherit_effects = yes\n\t\tinherit_icon = yes\n\t\ttrigger = { is_gestalt = yes }\n\t\tweight = { factor = 1 }\n\t}\n\n\tai_weight = { factor = 5000 }\n}\n\n# common/ascension_perks/zz_tidal_perks.txt\nap_tidal_ascendancy = {\n\tpotential = {\n\t\thost_has_dlc = \"Utopia\"\n\t\tNOT = { has_ascension_perk = ap_tidal_ascendancy }\n\t}\n\tpossible = {\n\t\tcustom_tooltip = {\n\t\t\tfail_text = \"requires_technology_tech_gene_tailoring\"\n\t\t\thas_technology = tech_gene_tailoring\n\t\t}\n\t}\n\tmodifier = {\n\t\tcountry_starbase_influence_cost_mult = -0.25\n\t}\n\ton_enabled = {\n\t\tcustom_tooltip = \"ap_tidal_ascendancy_effect_unlock\"\n\t}\n\tai_weight = { factor = 25 }\n}"
+]
+
+relationships = [
+    "governments-authorities",
+    "civics-origins"
+]
+
+validation = [
+    "图标必须自己在 interface/*.gfx 里注册 spriteType = { name = \"GFX_<传统键>\" ... }，建议放 gfx/interface/icons/traditions/；飞升天赋同理，建议 gfx/interface/icons/ascension_perks/。没有 GFX 定义的传统在 UI 上没有图标。",
+    "新增传统树必须同时处理 interface/topbar_traditions_view.gui（模板与摆放）与 ascension_perks_view.gui（AP 列表），否则界面不显示。",
+    "完成奖励（finisher）必须含 ascension_perks_add = 1，且 README 说它不能有 cost。",
+    "localisation 键：传统用 <key>（名称）、<key>_desc（自动效果说明）、<key>_delayed（风味文本）；README 第 27 行明确\"描述键必须是传统键加 _delayed（传统）或 _desc（飞升天赋）\"。采纳/完成奖励另有 tr_x_adopt、tr_x_adopt_desc、tr_x_adopt_effect、tr_x_finish、tr_x_finish_effect。",
+    "脚本接口：条件 has_tradition、has_active_tradition、has_ascension_perk；效果 add_tradition。4.0 新增 remove_tradition、remove_tradition_tree、copy_traditions_from、add_ascension_perk、remove_ascension_perk、copy_ascension_perks_from。"
+]
+
+source_refs = [
+    "https://stellaris.paradoxwikis.com/Tradition_modding",
+    "https://stellaris.paradoxwikis.com/Modding",
+    "Tradition modding (Stellaris Wiki)",
+    "Modding — Common folder 覆盖类型表 (Stellaris Wiki)",
+    "本地核对：common/traditions/99_README_TRADITIONS.txt、common/tradition_categories/99_README_TRADITION_CATEGORIES.txt、00_diplomacy.txt、00_enmity.txt、00_ascension_perks.txt（Stellaris Lyra v4.1.7）"
+]
+
+title_zh = "传统与飞升天赋"
+
+verified_version = "4.1.7 / 2.6"
+
+aliases = []

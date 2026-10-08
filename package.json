@@ -1,0 +1,50 @@
+{
+  "name": "rstellariscribe",
+  "version": "0.1.0",
+  "description": "Local MCP server and SKILL for Stellaris modding agents - a Stellaris port of RHoiScribe Target: Stellaris 4.4.x (Pegasus).",
+  "type": "module",
+  "license": "AGPL-3.0-or-later",
+  "engines": {
+    "node": ">=20"
+  },
+  "bin": {
+    "rstellariscribe": "src/index.mjs"
+  },
+  "files": [
+    "src",
+    "resources",
+    "knowledge",
+    "skill",
+    "docs",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "node scripts/build-knowledge.mjs",
+    "start": "node src/index.mjs",
+    "selftest": "node scripts/selftest.mjs",
+    "protocol-test": "node scripts/protocol-test.mjs",
+    "verify": "node scripts/build-knowledge.mjs && node scripts/selftest.mjs && node scripts/protocol-test.mjs"
+  },
+  "keywords": [
+    "stellaris",
+    "paradox",
+    "modding",
+    "mcp",
+    "agent",
+    "skill",
+    "localisation",
+    "validator",
+    "knowledge-base"
+  ],
+  "dependencies": {},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/g5Sunnystarscout/RStellarScribe.git"
+  },
+  "homepage": "https://github.com/g5Sunnystarscout/RStellarScribe#readme",
+  "bugs": {
+    "url": "https://github.com/g5Sunnystarscout/RStellarScribe/issues"
+  },
+  "author": "Tang Xuxin <239907224+g5Sunnystarscout@users.noreply.github.com>"
+}

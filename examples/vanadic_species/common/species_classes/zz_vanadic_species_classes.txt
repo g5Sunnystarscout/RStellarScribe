@@ -1,0 +1,49 @@
+# ------------------------------------------------------------------------------------
+# 钒代镁铁碳基类 / Vanadic Organisms
+#
+# Field names verified against Stellaris 4.1.7:
+#   common/species_classes/01_base_species_classes.txt  (Paradox's own field listing)
+#   common/species_classes/01_base_species_classes.txt  LITHOID = { trait = "trait_lithoid" }
+#     -> `trait = "..."` is the grant mechanism: every species of the class receives it.
+#
+# The class key doubles as its localisation key, so `vanadic` must exist in
+# localisation/<language>/vanadic_l_<language>.yml. Vanilla species classes have no
+# `<key>_desc` key (0 occurrences in 4.1.7), so the biochemistry is explained in the
+# granted trait's tooltip instead of here.
+# ------------------------------------------------------------------------------------
+
+vanadic = {
+	archetype = BIOLOGICAL
+
+	# random species of this class are NOT generated: the engine would look for a namelist
+	# whose category equals this class English name. It exists now (see the name list), but
+	# vanilla marks most non-core classes randomized = no, and keeping it off avoids the
+	# engine lookup entirely.
+	randomized = no
+
+	possible = {
+		authority = {
+			NOT = {
+				value = auth_machine_intelligence
+				text = SPECIES_CLASS_MUST_NOT_USE_MACHINE_INTELLIGENCE
+			}
+		}
+	}
+
+	trait = "trait_vanadic"
+
+	# Base-game graphical culture: cities, ships and namelists follow the arthropoid set.
+	# Base game only, so it renders without any species pack installed.
+	graphical_culture = arthropoid_01
+	move_pop_sound_effect = "moving_pop_confirmation"
+
+	# Occasionally handed to randomly generated AI empires, so the class is observable
+	# in a normal game rather than only in the empire creator.
+	# NOTE: this field takes a BLOCK in 4.4.6. Vanilla writes `random_weight = { base = 1 }`;
+	# a bare number is not the same thing.
+	random_weight = {
+		base = 5
+	}
+
+	resources = {}
+}

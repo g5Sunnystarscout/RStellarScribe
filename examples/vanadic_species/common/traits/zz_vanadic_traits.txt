@@ -1,0 +1,62 @@
+# ------------------------------------------------------------------------------------
+# trait_vanadic - 钒代金属酶系 (Vanadic Metalloenzymes)
+#
+# Granted automatically by the `vanadic` species class, exactly like trait_lithoid is
+# granted by the LITHOID class. Structure mirrors
+# common/traits/02_species_traits_basic_characteristics.txt (trait_lithoid): cost 0,
+# initial, and not removable.
+#
+# Every modifier below was verified to occur inside a vanilla species trait `modifier`
+# block in Stellaris 4.1.7 (all four also appear in logs/script_documentation/modifiers.log):
+#   planet_jobs_physics_research_produces_mult
+#   pop_environment_tolerance
+#   logistic_growth_mult
+#   planet_pops_food_upkeep_mult
+#
+# No country_* modifiers are used: vanilla species traits restrict themselves to pop,
+# planet, leader and army scope modifiers.
+# ------------------------------------------------------------------------------------
+
+trait_vanadic = {
+	cost = 0
+
+	sorting_priority = 20
+
+	initial = yes
+	randomized = no
+	species_potential_add = {
+		always = no
+	}
+	species_possible_remove = {
+		always = no
+	}
+	species_possible_merge_add = {
+		always = no
+	}
+	immortal_leaders = no
+
+	allowed_archetypes = { BIOLOGICAL }
+	tags = { organic positive special }
+	ai_weight = {
+		weight = 0
+	}
+
+	# Reuses a shipped icon so nothing has to be generated as a binary asset.
+	icon = "gfx/interface/icons/traits/trait_lithoid.dds"
+
+	modifier = {
+		# Vanadium redox chemistry replaces the iron-sulfur and magnesium centres of the
+		# original enzymes: electron transfer is cheaper, so physics work goes faster.
+		planet_jobs_physics_research_produces_mult = 0.10
+
+		# Vanadium nitrogenase fixes nitrogen at ambient pressure, which lowers the
+		# nutritional cost of maintaining the proteome.
+		planet_pops_food_upkeep_mult = -0.10
+
+		# A metalloenzyme network tolerates a wider range of solvent chemistry.
+		pop_environment_tolerance = 0.25
+
+		# Vanadium centres are slower to assemble than iron-sulfur clusters.
+		logistic_growth_mult = -0.15
+	}
+}

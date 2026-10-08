@@ -1,0 +1,76 @@
+id = "image-assets"
+
+title = "Registering Image Assets - Texture to Sprite"
+
+category = "media"
+
+file_types = [
+    "interface/*.gfx",
+    "gfx/**/*.dds",
+    "gfx/**/*.tga",
+    "gfx/**/*.png",
+    "interface/*.gui"
+]
+
+tags = [
+    "spriteType",
+    "corneredTileSpriteType",
+    "progressBarType",
+    "flagSpriteType",
+    "portraitType",
+    "frameAnimatedSpriteType",
+    "texturefile",
+    "borderSize",
+    "noOfFrames",
+    "GFX_text_",
+    "text_icons",
+    "dds",
+    "tga",
+    "png",
+    "mipmap",
+    "asset registration"
+]
+
+body = """
+## 概要\n\n`.gfx` 是「贴图文件 → 游戏内精灵名」的注册表，`.gui` 只写精灵名。要新增一个可见图像，需要**两件**东西同时正确：贴图落在 `gfx/**` 且 `.gfx` 块指向它，名字与块类型（kind）匹配用途。本条目只记录**从本机 4.4.6 安装里量出来的**字段契约，因为各 kind 接受的字段并不相同，写错字段既不会报错也不会生效。\n\n量出来的第一件事：**块类型比想象的严格**。`spriteType` 在 8539 条记录里 `size` 出现 **0 次**、`borderSize` 出现 **0 次**；而 `progressBarType` 的 195 条记录里 `size` 出现 195 次。也就是说 `size` 不是「可选的额外字段」，它是 `spriteType` 不接受的字段。\n\n第二件事：**块关键字大小写不敏感**。进度条块共 195 条，拼法有三种：`progressbarType` 101 条、`progressbartype` 93 条、`progressBarType` 1 条；`spriteType` 8539 条与 `SpriteType` 77 条并存；`bitmapfont_override` 33 条。三种拼法引擎都接受。字段名同样大小写不敏感（`texturefile` 6065 次 / `textureFile` 1738 次），但同一文件里保持一致更易读。\n\n第三件事：**没有 vanilla 例子的 kind 就不能照抄字段表**。`tileSpriteType`、`maskedShieldType`、`shieldType`、`lineChartType`、`animatedSpriteType`、`maskedSpriteType` 在本机 `interface/` 与 `gfx/` 下出现 **0 次**，字段集无法实测，只能在引擎日志里验证。\n\n## 文件位置与命名\n\n| 用途 | 定义位置 | 贴图位置 |\n| --- | --- | --- |\n| 精灵注册（唯一引擎会扫描的位置） | `<mod>/interface/**/*.gfx` | `gfx/**` |\n| 模型 / 粒子定义（不是精灵） | `gfx/**/*.gfx`（340 个） | `gfx/models/` |\n| 启动器 / 预览器自己的资源 | `pdx_launcher/`、`previewer_assets/`、`tweakergui_assets/` | 同目录 |\n\n全安装 `.gfx` 共 491 个：`gfx/` 340、`interface/` 131、`pdx_online_assets/` 9、`pdx_launcher/` 5、`previewer_assets/` 4、`tweakergui_assets/` 2。**只有 `interface/` 那 131 个是精灵注册表**，其中 116 个在顶层、15 个在子目录。`interface/` 是 LIOS（后加载者生效），所以新增内容放自己的新文件。\n\n`texturefile` 是**相对游戏安装目录**的路径，本机 6916 条不同贴图路径全部落在 `gfx/` 下：`.dds` 6895、`.tga` 16、`.png` 4（另有 1 条写成 `gfx/interface/tiles/text_highlight_bg_tile.dds ` 带尾随空格，属于 vanilla 的笔误）。放别处引擎找不到，精灵就是空白，且不一定报错。\n\n## 语法与字段\n\n实测字段契约（`count` = 该 kind 的记录数；`必需` = 该字段在 100% 记录里出现，`实测` = 出现过但非必需）：\n\n| kind | 记录数 | 必需字段 | 实测可选字段 | 代表行 |\n| --- | --- | --- | --- | --- |\n| `spriteType` | 8539 | `name`（+ 7803 条有贴图） | `alwaystransparent` 1500、`noOfFrames` 1203、`effectFile` 799、`masking_texture` 611、`transparencecheck` 107、`legacy_lazy_load` 71、`loadType` 3；块 `animation`/`upper_left`/`lower_right`/`hitbox_margin` | `interface/additional_content/additional_content.gfx:66` |\n| `SpriteType` | 77 | `name` | 同 `spriteType` | `interface/additional_content/additional_content.gfx:24` |\n| `corneredTileSpriteType` | 335 | `name`、贴图 | `borderSize` 291、`effectFile` 249、`noOfFrames` 30、`size` 25、`tilingCenter` 6 | `interface/additional_content/additional_content.gfx:3` |\n| `progressbarType` + `progressbartype` + `progressBarType` | 195 | `name`、`textureFile1`、`textureFile2`、`effectFile`、`size` | `flipdirection` 28、`horizontal` 17；块 `color`/`colorTwo` | `interface/crisis.gfx:652`、`interface/the_shroud.gfx:918` |\n| `flagSpriteType` | 18 | `name`、`textureFile`、`masking_texture`、`effectFile` | `noOfFrames` 17；块 `bg_position`/`bg_size`/`symbol_position`/`symbol_size` 17 | `interface/game_setup/customization.gfx:16` |\n| `portraitType` | 21 | `name`、`effectFile`、`type`、`character` | `masking_texture` 15、`texturefile` 11、`mid_close_up` 3、`close_up` 2 | `interface/core.gfx:210` |\n| `frameAnimatedSpriteType` | 5 | `name`、`noOfFrames`、`animation_rate_fps`、`looping`、`play_on_show` | `texturefile`、`transparencecheck` | `interface/main.gfx:598` |\n| `textSpriteType` | 4 | `name`、`texturefile` | `effectFile` 1、`clicksound` 1 | `interface/general_stuff.gfx:287` |\n| `PieChartType` | 3 | `name`、`size` | `is_hover` 2；块 `colors` | `interface/government_view.gfx:215` |\n| `tileSpriteType` / `maskedShieldType` | **0** | 无法实测 | 无法实测 | — |\n\n`effectFile` 是**着色器路径**，全安装只用到四个：`gfx/FX/buttonstate_onlydisable.shader`（spriteType 574 / cornered 223）、`gfx/FX/buttonstate.shader`（SpriteType 71 / spriteType 185）、`gfx/FX/progress.shader`（progressbarType 101/101）、`gfx/FX/progress_startend.shader`（progressbarType 73/93）、`gfx/FX/flag_sprite.shader`（flagSpriteType 18/18）、`gfx/FX/buttonstate_rendertarget.shader`（portraitType 20/21）。`spriteType` 里 7740/8539 条**没有** `effectFile`，所以它不是必需项。\n\n贴图容器与格式（`gfx/**/*.dds` 共 21305 个，逐个读 128 字节头）：\n\n- 未压缩 32bpp + alpha 13290，`DXT5` 6579，`DXT1` 645，未压缩 24bpp 621，`DXT3` 153，未压缩 16bpp + alpha 15，另有 2 个文件头读不出来。**没有 BC7、没有 DX10 扩展头**。\n- mip 数分布：无 `MIPMAP` 标志（即 1 级）12510，1 级 2872，2 级 2 …… 12 级 2378，13 级 48。所以 **mipmap 不是必需**，但 UI 素材通常带。\n- `.tga` 19 个、`.png` 16 个。**注意**：16 条指向 `.tga` 的 `texturefile` 里，13 条指向的文件在安装里**根本不存在**（`gfx/interface/tiles/invisible.tga`、`gfx/interface/sliders/ncp_scroll_bg.tga`、`gfx/interface/buttons/on_off_indicator.tga` 等），全盘搜索也没有。vanilla 自己也留了死注册。所以「贴图缺失」是真需要检查的一项，不能因为 vanilla 有就假定没问题。\n\n## 常见错误\n\n- 把 `size` 写进 `spriteType`：不报错也不生效，元素按贴图原始尺寸绘制。\n- `borderSize` 写到 `spriteType` 上：9 宫格完全失效，窗口底图被整体拉伸成糊块。\n- 进度条只给一张贴图：`textureFile2`（空槽底）缺失，槽位背景不显示。\n- 文字图标命名为 `GFX_my_icon` 却写 `£my_icon£`：图标位置空白，且可能吃掉后面几个字符。\n- 用 `.jpg`/`.bmp` 当 `texturefile`：安装里 6916 条注册路径没有一条用它们；`gfx/` 下确实有 2 个 `.bmp`、5 个 `.cur`，但没有被 `.gfx` 引用。\n- `.gfx` 放进 `gfx/` 而不是 `interface/`：那是模型定义目录，精灵不会注册。\n\n## 待确认\n\n- 46 个 `£token£` 只有普通 `GFX_<token>` 而没有 `GFX_text_<token>`（例如 `£job_miner£` → `GFX_job_miner`，`interface/planet_view.gfx:250`），另有 388 个两者都没有（它们的精灵由 `gfx/interface/icons/<类别>/` 目录自动生成）。**引擎是否对这些回退到普通名字，未能从文件证实**，因此本工具一律生成 `GFX_text_` 形式。\n- `alwaystransparent`（1500 次）与 `alwaysTransparent`（22 次）在 `.gfx` 里并存，`transparencecheck`（71 次）/`transparenceCheck`（51 次）/`transParencecheck`（3 次）三种拼写并存；引擎接受全部，是否为拼写容错未验证。\n- `tileSpriteType` / `maskedShieldType` 的字段集在本机 4.4.6 无法实测（0 个块）；网上流传的字段表未在本安装核对。
+"""
+
+syntax_blocks = [
+    "# <mod>/interface/<前缀>_gfx.gfx —— 必须 UTF-8 无 BOM，否则整个文件不解析\nspriteTypes = {\n\tspriteType = {\n\t\tname = \"GFX_my_mod_icon\"\n\t\ttexturefile = \"gfx/interface/icons/my_mod_icon.dds\"\n\t}\n\tcorneredTileSpriteType = {          # 9 宫格：窗口底图/边框\n\t\tname = \"GFX_my_mod_panel\"\n\t\ttextureFile = \"gfx/interface/my_mod_panel.dds\"\n\t\tborderSize = { x = 80 y = 80 }   # 四角保持原尺寸，边与中心拉伸\n\t\tsize = { x = 200 y = 120 }       # 可选（335 条里 25 条写了）\n\t}\n\tprogressBarType = {                  # 双贴图进度条\n\t\tname = \"GFX_my_mod_bar\"\n\t\tcolor = { 1.0 1.0 1.0 }\n\t\tcolorTwo = { 1.0 1.0 1.0 }\n\t\ttextureFile1 = \"gfx/interface/my_mod_bar_fill.dds\"\n\t\ttextureFile2 = \"gfx/interface/my_mod_bar_bg.dds\"\n\t\tsize = { x = 10 y = 432 }\n\t\teffectFile = \"gfx/FX/progress.shader\"\n\t\thorizontal = no\n\t\tflipdirection = yes\n\t}\n\tflagSpriteType = {                   # 帝国旗帜：框架贴图 + 遮罩\n\t\tname = \"GFX_my_mod_flag\"\n\t\ttextureFile = \"gfx/interface/flags/my_flag_frame.dds\"\n\t\tmasking_texture = \"gfx/interface/flags/my_flag_mask.dds\"\n\t\teffectFile = \"gfx/FX/flag_sprite.shader\"\n\t\tnoOfFrames = 1\n\t\tbg_position = { x = 12 y = 14 }\n\t\tbg_size = { width = 162 height = 183 }\n\t\tsymbol_position = { x = 26 y = 26 }\n\t\tsymbol_size = { width = 134 height = 134 }\n\t}\n\t# 内联文字图标：名字必须是 GFX_text_<token>，loc 里写 £token£\n\tspriteType = {\n\t\tname = \"GFX_text_my_mod_insight\"\n\t\ttexturefile = \"gfx/interface/icons/text_icons/my_mod_insight.dds\"\n\t}\n}"
+]
+
+relationships = [
+    "gfx-interface",
+    "gui-files",
+    "audio-assets",
+    "localisation-style",
+    "common-errors"
+]
+
+validation = [
+    ".gfx 存成 UTF-8 无 BOM（与 localisation 相反）；有 BOM 时整个文件被跳过，所有精灵消失且界面上只是空白。",
+    "外层块必须是 spriteTypes = {：131 个文件里 125 个这样拼，0 个用 SpriteTypes；写成 types 则整文件无效。",
+    "块类型决定可用字段：spriteType 不接受 size（8539 条里 0 次）与 borderSize（0 次）；要声明尺寸用 corneredTileSpriteType（335 条里 25 条写 size）或 progressBarType。progressBarType 用 textureFile1/textureFile2，写单数 texturefile 无效（195 条里 0 次）。",
+    "精灵名全局唯一：9197 条 sprite 声明里没有任何名字被声明两次（唯一的 9 组重名全在字体上，bitmapfont 与按语言的 bitmapfont_override 共用名字，属正常写法）。重名会按加载顺序互相遮蔽。",
+    "所有 name 值都匹配 [A-Za-z0-9_]（9243 条无一例外）；引号、空格、连字符、点都不能用，用了 .gui 就引用不到。",
+    "GFX_ 前缀是约定而非引擎要求：9197 条里 9171 条有前缀（99.7%），26 条没有（cursor 在 interface/core.gfx:2、gfx_transparency 同文件第 9 行、SandboxFloaterBackground 在 interface/eu4_placeholders.gfx:20）。加前缀更安全。",
+    "内联文字图标必须是 GFX_text_<token>，loc 里写 £token£（去掉两层前缀）。最硬的证据是 vanilla 为一个已有普通名字的贴图又写了一遍别名：interface/astral_planes_resources.gfx 第 3 行的块声明 GFX_resource_astral_threads，第 13 行的块声明 GFX_text_resource_astral_threads，两者指向同一个 astral_threads.dds。若存在普通 GFX_ 回退，这个别名毫无意义。",
+    "精灵改名或新增后要在 .gui 里真正引用才会显示；.gui 的 iconType 不接受 size（只有 scale），带尺寸的装饰面板要用 containerWindowType + background。",
+    "改贴图分辨率必须重启游戏；reload texture all 只重载内容。",
+    "texturefile 路径大小写要与磁盘一致（Windows 不敏感，Linux/macOS 敏感），并且不要带尾随空格。"
+]
+
+source_refs = [
+    "https://stellaris.paradoxwikis.com/Interface_modding",
+    "https://stellaris.paradoxwikis.com/Icon_modding",
+    "https://stellaris.paradoxwikis.com/Event_pictures",
+    "Interface modding",
+    "Icon modding",
+    "Event pictures"
+]
+
+title_zh = "图像素材注册：贴图 → 精灵"
+
+verified_version = "4.4.6 Pegasus（本机 <Stellaris> 全量统计，interface/**/*.gfx 131 个文件、9243 条 name 声明）"
+
+aliases = []

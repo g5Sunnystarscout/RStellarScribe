@@ -1,0 +1,125 @@
+# ------------------------------------------------------------------------------------
+# Aerospace Carrier / 空天母舰
+#
+# A NORMAL fleet ship, in the same family as the corvette / cruiser / constructor: it joins
+# fleets, fights in line, and bombards from orbit.
+#
+# This file deliberately does NOT use the arkship template. An earlier version copied the
+# vanilla arkship (class = shipclass_starbase + carries_colony + starbase module/building
+# capacity), and that combination produces an *arkship*: a mobile colony that exists on its
+# own and CANNOT be added to a fleet. That broke the whole point of the hull - no fleet
+# combat, no fleet-view orders, no normal bombardment stance.
+#
+# `carries_colony` is the field that causes it: it turns the hull into a mobile colony and
+# hands it the hardcoded arkship UI. The army-building that UI provided is now done by this
+# mod's own hand-written bridge window (interface/zz_aerospace_carrier_gui.gui +
+# common/button_effects/), which is both reachable from a normal fleet and fully authored
+# here.
+#
+# Field set follows a vanilla buildable military hull (common/ship_sizes/00_biogenesis.txt
+# `mauler_stage_1` for the gating fields, 18_juggernauts.txt for the capital-ship values):
+#   class = shipclass_military          -> a normal fleet ship
+#   construction_type = starbase_shipyard -> built by starbases that have a shipyard
+#   prerequisites = { tech }            -> the generic, non-hardcoded tech unlock
+#   scripted_action = { ... }           -> the ship's own fleet-view order button
+#
+# Art is reused: the military arkship hull and its icon, plus the section templates in
+# common/section_templates/zz_aerospace_carrier_sections.txt.
+# ------------------------------------------------------------------------------------
+
+aerospace_carrier = {
+	class = shipclass_military
+	construction_type = starbase_shipyard
+	prerequisites = { "tech_aerospace_carrier" }
+
+	# --- the ship's own button -----------------------------------------------------
+	# `scripted_action` enables fleet-view order buttons for this hull; the field is
+	# documented in common/ship_sizes/00_ship_sizes.txt ("list of scripted actions enabled
+	# by this ship size") and used by vanilla at 29_nomads_dlc_ships.txt:1348. Declaring it
+	# here rather than on a component means the button exists as soon as the carrier does.
+	# The action lives in common/scripted_actions/ and its on_completed callback opens the
+	# hand-written bridge window.
+	scripted_action = { aerospace_carrier_muster_army }
+
+	# --- construction admission ----------------------------------------------------
+	# Evaluated in the builder's scope, hence the scripted triggers (same shape as
+	# titan_potential_construction / juggernaut_potential_construction).
+	potential_construction = {
+		aerospace_carrier_potential_construction = yes
+	}
+	possible_construction = {
+		aerospace_carrier_possible_construction = yes
+	}
+
+	# --- design behaviour ----------------------------------------------------------
+	is_designable = yes
+	enable_default_design = yes
+	enable_3dview_in_ship_browser = yes
+	can_have_federation_design = no
+	components_add_to_cost = no
+	is_space_station = no
+	selectable = { always = yes }
+
+	# --- reused art ----------------------------------------------------------------
+	entity = military_arkship_01_stage_1_entity
+	section_slots = {
+		"mid" = { locator = "part1" }
+	}
+	icon = ship_size_military_arkship_tier_1
+	icon_frame = 16
+	ship_class_icon_frame = 64
+	map_counter_icon = ship_counter_128
+
+	# `use_shipnames_from` must name an EXISTING ship size. Valid values in 4.4.6 are
+	# destroyer / corvette / cruiser / battleship / titan / juggernaut / colossus / science /
+	# colonizer / constructor / military_station_small. Writing something else (e.g. a
+	# descriptive word) logs `Invalid ship size for names <value>` and then makes the
+	# namelists fall back repeatedly, spamming `failed to generate a ship class name`
+	# (vanilla hulls log that once each, so a handful of extra lines is the tell).
+	use_shipnames_from = battleship
+
+	# --- hull ---------------------------------------------------------------------
+	formation_priority = 5
+	max_speed = 100
+	acceleration = 0.2
+	rotation_speed = 0.15
+	collision_radius = 8
+	max_hitpoints = 2500
+	size_multiplier = 80
+	combat_size_multiplier = 100
+	fleet_slot_size = 8
+	num_target_locators = 0
+	combat_disengage_chance = 1.5
+
+	default_behavior = carrier
+	ship_roles = { carrier artillery }
+
+	modifier = {
+		ship_armor_add = 1250
+		ship_shield_add = 1250
+		ship_evasion_add = 5
+
+		# Orbital bombardment, from the game's own modifier list (Category: Ships).
+		ship_orbital_bombardment_mult = 1.0
+		ship_orbital_bombardment_army_damage_mult = 0.5
+
+		# Army assembly aboard the carrier: the 集结平台 component and the bridge window both
+		# build on this.
+		army_starting_experience_add = 100
+	}
+
+	min_upgrade_cost = {
+		alloys = 50
+	}
+
+	ai_ship_data = {
+		min = 1
+		max = 1
+	}
+
+	required_component_set = "power_core"
+	required_component_set = "ftl_components"
+	required_component_set = "thruster_components"
+	required_component_set = "sensor_components"
+	required_component_set = "combat_computers"
+}

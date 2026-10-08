@@ -1,0 +1,66 @@
+id = "jobs-buildings-districts"
+
+title = "Jobs, Buildings and Districts"
+
+category = "content"
+
+file_types = [
+    "common/pop_jobs/*.txt",
+    "common/buildings/*.txt",
+    "common/districts/*.txt",
+    "common/zones/*.txt",
+    "common/zone_slots/*.txt"
+]
+
+tags = [
+    "pop_jobs",
+    "buildings",
+    "districts",
+    "zones",
+    "4.0-rework"
+]
+
+body = """
+## 概要\n\n星球经济由四层对象构成：**岗位（job）** 产出资源，**建筑（building）** 与 **区划（district）** 提供岗位，**区划专精（zone，4.0 新增）** 决定区划提供哪一类建筑槽与岗位。建筑本身通常不直接产资源，而是通过 `planet_modifier` 加岗位（`job_xxx_add`），这是 vanilla 的一贯做法。\n\n**4.0（Phoenix）是本条目最重要的一次重做**：引入 `common/zones/` 与 `common/zone_slots/` 两个新目录，区划必须声明 `zone_slots`，建筑必须归属至少一个 **building set**，pop 被聚合成 **pop group**，岗位产出的加成从\"物种特质改产出\"改为 **workforce（劳动力）** 机制。3.x 的写法在 4.x 下大部分仍能解析，但缺 `zone_slots` 的自定义区划不会正常出现在 UI 里。\n\n## 文件位置与命名\n\n| 目录 | 内容 |\n| --- | --- |\n| `common/pop_jobs/*.txt` | 岗位定义 |\n| `common/buildings/*.txt` | 行星/分部/附属国建筑 |\n| `common/districts/*.txt` | 区划 |\n| `common/zones/*.txt` | 区划专精（**仅 4.x**） |\n| `common/zone_slots/*.txt` | 区划槽（**仅 4.x**） |\n| `common/pop_categories/*.txt` | 社会阶层（ruler/specialist/worker/slave…） |\n| `common/job_tags/*.txt` | 岗位标签分组（**仅 4.x**） |\n\n游戏自带的权威文档（强烈建议优先阅读，比 Wiki 新）：\n`common/buildings/00_example.txt`、`common/districts/00_DOCUMENTATION.txt`、`common/zones/99_HOW_TO_ZONE.txt`、`common/pop_jobs/000_pretriggers.txt`。\n\n命名注意：**4.x 的岗位根键是裸键**（`technician`、`researcher`），而生成的修正名仍带前缀 `job_technician_add`。Wiki 表格里写的 `job_key = { ... }` 是文档约定，不是真实根键名。\n\n## 语法与字段\n\n### 岗位（4.1 实测字段）\n\n\n\n### 岗位（3.x 写法差异）\n\n3.x 的岗位根键同样是裸键（如 `researcher`），字段集合与 4.x 高度重合（`category` / `condition_string` / `building_icon` / `possible_pre_triggers` / `possible_precalc` / `possible` / `resources{produces,upkeep}` / `planet_modifier` / `triggered_planet_modifier` / `triggered_country_modifier` / `weight`），**但有三处必须区分**：\n\n1. `weight` 的作用域是 **pop**（4.0 改为 **pop_group**）。\n2. 4.x 新增 `tags`、`swappable_data`、`promotion`、`overlord_resources`、`possible_precalc`；3.x 无这些字段。\n3. 物种特质的产出修正在 4.x 被移除，改为 workforce 系列。**4.1.7 实际注册的修正名**（取自 `modifiers.log`）是 `pop_workforce_mult`、`pop_bonus_workforce_mult`、`job_max_workforce_add`、`job_max_workforce_mult`，另有按阶层的 `pop_cat_worker_bonus_workforce_mult` 等。注意 Dev Diary #372 预告的 `pop_job_bonus_workforce_mult` / `pop_job_workforce_mult` 在 4.1.7 中**并不存在**，以日志为准。\n4. 旧的 `pop_growth_speed` 在 4.1 已不存在，须改用 `logistic_growth_mult` / `bonus_pop_growth_mult`；`country_research_speed_mult` 也不存在。\n\n### 建筑（4.1 实测字段）\n\n\n\n3.x 建筑字段基本一致，差异在于：3.x 用 `is_capped_by_modifier` + `base_cap_amount` 控制上限，4.x 改成 `planet_limit = { base/modifier }` 与 `empire_limit = { base/modifier }`；4.x 的 `building_sets` 是硬性要求。生成修正：`<building_key>_max_add` 可提高该建筑上限。\n\n### 区划（4.x）与 3.x 的区别\n\n\n\n区划与建筑同名冲突不存在，但 `potential` 返回 false 时 **区划会被移除或按 `convert_to` 转换**，建筑只是隐藏——这是两者最本质的语义差别。\n\n3.x 的 district 没有 `zone_slots`，也没有 `is_uncapped` / `default_starting_district` / `has_primary_zone`，而是用 `is_capped_by_modifier` 与 `min_for_deposits_on_planet` / `max_for_deposits_on_planet` 控制数量。3.x 一个 district set 通常有 5 个区划，4.x 精简到 4 个（城市 + 3 个资源区划），合金/消费品改由 zone 提供。\n\n### 区划专精 zone 与 zone slot（4.x 独有）\n\n\n\n\n\n`district_planet_modifier` / `district_country_modifier` 是 **按已建区划数倍乘**，`planet_modifier` / `country_modifier` 只算一次，这是最容易写错的一处。\n\n## 常见错误\n\n- **写顶层 `produces` / `upkeep`**：4.x 会解析失败或产出为 0，正确是放进 `resources`。\n- **忘记 `building_sets`**：建筑不出现在任何 zone 的建造列表里。\n- **自定义区划没写 `zone_slots`**：区划出现在 UI 但无法获得建筑槽，实际不可用。\n- **混淆 `planet_modifier` 与 `triggered_district_planet_modifier`**：前者只生效一次，后者按区划数倍乘。\n- **在 4.x 用 3.x 的旧修正名**（如 `pop_growth_speed`、`country_research_speed_mult`）：不存在，静默失效。必须先查 `logs/script_documentation/modifiers.log`。\n- **认为 job 根键要加 `job_` 前缀**：根键是裸键，加了前缀会导致 `job_xxx_add` 找不到岗位。\n\n## 待确认\n\n- 3.x（3.14）岗位是否确实使用 `resources = { produces ... }` 还是顶层 `produces`：本机只有 4.1.7，3.14 文件未能取得，Wiki 正文（表格用 `resources`、问答段用 `resources`）与 3.x 时代留存的 vanilla 片段存在表述不一致，暂按\"同为 `resources`\"记录，需用 3.14 安装实测确认。\n- `possible_precalc` 的合法取值集合（vanilla 见到 `can_fill_worker_job` / `can_fill_specialist_job` / `can_fill_ruler_job`），是否有其它值未确认。\n- `swappable_data` 的完整子字段（`swap_type` / `weight` / `icon` / `name` / `desc` / `building_icon`）与 `condition_string` 的优先级关系未在官方文档中说明。\n- 4.0 早期小版本（4.0.x）与 4.1.x 在 zone 字段上是否完全一致未逐版核对。\n\n## vanilla 核实记录（4.1.7 = `D:\\SteamLibrary\\steamapps\\common\\Stellaris`）\n\n以下字段均在游戏本体文件中实际读到，可直接对照：\n\n| 字段 | 证据文件 | 备注 |\n| --- | --- | --- |\n| job 根键是裸键 | `common/pop_jobs/03_worker_jobs.txt:112` `technician = {` | 不是 `job_technician` |\n| `resources = { produces/upkeep }` | `common/pop_jobs/03_worker_jobs.txt:148-170` | 产出在 `resources` 内 |\n| `tags` | `common/pop_jobs/03_worker_jobs.txt:131` `tags = { energy }` | 值须在 `common/job_tags/00_tags.txt` 注册 |\n| `swappable_data` | `common/pop_jobs/03_worker_jobs.txt:114-129` | 含 `swap_type`/`weight`/`icon`/`name`/`desc`/`building_icon` |\n| `possible_precalc` | `common/pop_jobs/03_worker_jobs.txt:140` `possible_precalc = can_fill_worker_job` | |\n| `promotion` | `common/pop_jobs/00_other_jobs.txt:657` | |\n| `overlord_resources` | `common/pop_jobs/02_specialist_jobs.txt:131` | |\n| `pop_group_modifier`（阶层上的） | `common/pop_categories/00_social_classes.txt:9` | 3.x 为 `pop_modifier` |\n| `is_uncapped` | `common/districts/02_rural_districts.txt` `district_generator` | 取代 `is_capped_by_modifier` |\n| `zone_slots` | `common/districts/00_urban_districts.txt` `district_city` | `slot_city_government` / `slot_city_01` / `slot_city_02` |\n| `default_starting_district` | 同上 `district_city` | |\n| zone 的 `max_buildings` / `zone_sets` / `swap_type` | `common/zones/00_zones.txt`（`zone_default` / `zone_urban` / `zone_factory_nexus`） | |\n| `triggered_district_planet_modifier` | `common/zones/00_zones.txt` `zone_urban` | 按区划数倍乘 |\n| slot 的 `start` / `included_zone_sets` | `common/zone_slots/00_zone_slots.txt`（`slot_city_government` / `slot_city_01`） | |\n| 建筑必填 `building_sets` | `common/buildings/00_example.txt` | 文件注释明确\"All buildings … must belong to at least one Building Set\" |\n| `planet_limit` / `empire_limit` | `common/buildings/00_example.txt` | 取代 `base_cap_amount` |\n| `triggered_planet_pop_group_modifier_for_all/_for_species` | `common/buildings/00_example.txt` | |\n| `army_modifier` / `system_modifier`（建筑上的） | `common/buildings/00_example.txt` | 本次未在正文展开 |\n\n**被推翻的假设**：`common/buildable_districts/` 在 4.1.7 **不存在**（`Test-Path` 为 False）；`job_technician = {` 这种带前缀根键在 4.1.7 **不存在**。
+"""
+
+syntax_blocks = [
+    "# common/pop_jobs/my_jobs.txt  —— 4.x 写法\norbital_ecologist = {\n\tcategory = worker                    # 指向 common/pop_categories 的阶层键\n\ttags = { energy research }           # 4.x：岗位标签，须在 common/job_tags 注册\n\n\tswappable_data = {                   # 4.x：岗位\"换皮\"数据\n\t\tdefault = {\n\t\t\tcondition_string = WORKER_JOB_TRIGGER\n\t\t\tbuilding_icon = building_energy_grid\n\t\t}\n\t}\n\n\tpossible_pre_triggers = {            # 性能优化用的快速前置判断\n\t\thas_owner = yes\n\t\tis_being_purged = no\n\t\tis_being_assimilated = no\n\t\tis_sapient = yes\n\t}\n\tpossible_precalc = can_fill_worker_job\n\tpossible = {                         # Pop scope\n\t\thidden_trigger = { exists = owner }\n\t\towner = { is_gestalt = no }\n\t}\n\n\tresources = {                        # 经济单元：产出与维护都在这里面\n\t\tcategory = planet_technician\n\t\tproduces = { energy = 6 }\n\t\tproduces = {\n\t\t\ttrigger = { exists = owner owner = { is_robot_empire = yes } }\n\t\t\tenergy = 2\n\t\t}\n\t\tupkeep = { consumer_goods = 1 }\n\t}\n\n\tplanet_modifier = { planet_jobs_trade_produces_mult = 0.01 }\n\ttriggered_planet_modifier = {\n\t\tpotential = { always = yes }\n\t\tplanet_amenities_add = 2\n\t}\n\ttriggered_country_modifier = {\n\t\tmodifier = { country_naval_cap_add = 1 }\n\t\tmult = planet.modifier:job_researcher_naval_cap_add\n\t}\n\n\tweight = {                           # 4.x：scope 为 pop_group\n\t\tweight = @worker_job_weight\n\t\tmult = value:job_weights_modifier|JOB|orbital_ecologist|RESOURCE|energy|\n\t\tmodifier = { factor = 2 has_trait = trait_strong }\n\t}\n}",
+    "# common/buildings/my_buildings.txt\nbuilding_orbital_academy = {\n\tbase_buildtime = 480\n\tcategory = research                 # pop_assembly/government/resource/manufacturing/\n\t                                    # research/trade/amenity/unity/army\n\tcapital = no\n\tcan_build = yes\n\tcan_demolish = yes\n\tcan_be_ruined = yes\n\tcan_be_disabled = yes\n\tposition_priority = 150\n\n\tbuilding_sets = {                   # 4.x 必填：决定能建在哪些 zone 里\n\t\tresearch\n\t}\n\n\tplanet_limit = { base = 1 }\n\tempire_limit = { base = 3 modifier = { add = 1 has_technology = tech_x } }\n\n\tpotential = { exists = owner NOT = { has_designation = col_resort } }\n\tallow = { has_upgraded_capital = yes }\n\tdestroy_trigger = { NOT = { exists = owner } }\n\tconvert_to = { building_research_lab_1 }\n\tprerequisites = { \"tech_research_lab_1\" }\n\n\tresources = {\n\t\tcategory = planet_buildings\n\t\tcost = { minerals = 400 }\n\t\tupkeep = { energy = 2 }\n\t}\n\n\ttriggered_planet_modifier = {\n\t\tpotential = { exists = owner owner = { is_regular_empire = yes } }\n\t\tmodifier = { job_researcher_add = 2 }\n\t}\n\tupgrades = { building_orbital_academy_2 }\n\n\ton_built = { owner = { set_country_flag = built_academy } }\n}",
+    "# common/districts/my_districts.txt —— 4.x\ndistrict_orbital_farm = {\n\tbase_buildtime = 240\n\texpansion_planner = yes\n\t# default_starting_district = yes     # 每个区划集只有一个\"主区划\"，通常给城市\n\t# has_primary_zone = yes              # 默认 yes\n\tis_uncapped = { is_farming_district_uncapped = yes }\n\n\tzone_slots = { slot_farming }         # 4.x 必填\n\n\tshow_on_uncolonized = { uses_district_set = standard exists = from }\n\tpotential = { uses_district_set = standard }\n\tallow = { is_special_colony_type = no }\n\tconversion_ratio = 1\n\tconvert_to = { district_hive_1 }\n\n\tresources = {\n\t\tcategory = planet_districts_farming\n\t\tcost = { minerals = @base_cost }\n\t\tupkeep = { energy = 1 }\n\t}\n\tplanet_modifier = { planet_housing_add = 200 }\n\ttriggered_name = { trigger = { always = yes } text = district_orbital_farm }\n}",
+    "# common/zones/my_zones.txt\nzone_orbital_industry = {\n\ticon = GFX_district_specialization_urban\n\tbase_buildtime = @zone_buildtime\n\tpotential = { hidden_trigger = { exists = owner owner = { is_wilderness_empire = no } } }\n\tunlock = { hidden_trigger = { exists = owner } }\n\n\tresources = {\n\t\tcategory = planet_zones\n\t\tcost = { minerals = @zone_cost }\n\t}\n\n\tmax_buildings = 3                    # 主区划一般 6，次级区划一般 3\n\tzone_sets = { urban habitat_urban }  # 每个 zone 至少属于一个 zone set\n\n\ttriggered_district_planet_modifier = {   # 数值 × 已建区划数量\n\t\tplanet_housing_add = 200\n\t}\n\tplanet_modifier = { zone_building_slots_add = 3 }\n\tswap_type = district_nexus_factory   # 建造后把宿主区划换成另一类型\n\tswap_type_weight = 5\n\tai_priority = 2\n\tai_weight_coefficient = 0.5\n}",
+    "# common/zone_slots/my_zone_slots.txt\nslot_city_01 = {\n\tincluded_zone_sets = { urban }\n\tunlock = { custom_tooltip = { fail_text = zone_city_02_prereq has_upgraded_capital = yes } }\n}\nslot_city_government = {\n\tstart = zone_default                 # 开局自动装上这个 zone\n\tincluded_zone_sets = { zone_default }\n\tpotential = { always = yes }\n\tunlock = { always = yes }\n}"
+]
+
+relationships = [
+    "static-modifiers",
+    "economy-and-resources"
+]
+
+validation = [
+    "建筑必须有 building_sets，区划必须有 zone_slots，zone 必须有 zone_sets 与 max_buildings，否则 4.x 下不显示或报错。",
+    "zone_slots 里引用的 slot 必须在 common/zone_slots/ 定义；slot 必须用 include 或 included_zone_sets 至少允许一个 zone。",
+    "岗位产出写在 resources = { produces = { ... } } 内，不要写成顶层的 produces.",
+    "本地化键：<key>、<key>_desc，岗位还有 job_<key>_effect_desc（用于 triggered_desc）。",
+    "图标：建筑默认取 gfx/interface/icons/buildings/<building_key>.dds，并需在定义里显式写 icon 才会生效。",
+    "用 -debug_mode 或 error.log 检查未注册的 tag、缺失的 building set、缺失的 zone slot。"
+]
+
+source_refs = [
+    "https://stellaris.paradoxwikis.com/Pop_Job_modding",
+    "https://stellaris.paradoxwikis.com/Building_modding",
+    "https://stellaris.paradoxwikis.com/District_modding",
+    "https://stellaris.paradoxwikis.com/Economy_modding",
+    "Pop Job modding",
+    "Building modding（含 Phoenix 4.0 迁移章节）",
+    "District modding / Zones modding",
+    "Economy modding（Economy Units）",
+    "游戏自带：common/buildings/00_example.txt、common/districts/00_DOCUMENTATION.txt、common/zones/99_HOW_TO_ZONE.txt",
+    "Dev Diary #372 Modding: Pop Groups and Jobs（workforce 机制与 pop_job_bonus_workforce_mult）"
+]
+
+title_zh = "岗位、建筑与区划"
+
+verified_version = "4.1.7 (file check) / 3.x (wiki)"
+
+aliases = []

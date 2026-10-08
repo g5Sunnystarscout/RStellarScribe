@@ -1,0 +1,61 @@
+id = "scopes"
+
+title = "Scopes"
+
+category = "script"
+
+file_types = [
+    "common/**",
+    "events/**",
+    "common/scripted_effects/**",
+    "common/scripted_triggers/**"
+]
+
+tags = [
+    "scope",
+    "scope-switch",
+    "event-target",
+    "root",
+    "from",
+    "prev"
+]
+
+body = """
+## 概要\n\n游戏里几乎每个对象都提供一个作用域（scope）：行星是 `planet`、国家是 `country`、人口是 `pop`。触发器与效果都必须**在某个作用域下**执行，所以“这句话在哪个作用域可用”决定了它能不能跑。对象之间的关系构成一棵以全局作用域为根的树，沿着这棵树移动就是**作用域切换**。\n\n## 文件位置与命名\n\n作用域不是独立文件，而是出现在任何脚本里：事件（`trigger` / `immediate` / `option`）、`common/scripted_effects/*.txt`、`common/scripted_triggers/*.txt`、决议与法令的 `potential` / `allow` / `effect` 等。\n\n核对顺序：**先数 vanilla（本机 4.1.7）**，再用运行时日志兜底。\n- vanilla 统计法：`Get-ChildItem <游戏>\\common,<游戏>\\events -Recurse -File -Include *.txt | Select-String -Pattern '<作用域键>' -SimpleMatch`。本条目给出的计数即由此得出，0 次即可判定该键不存在。\n- 运行时导出：控制台 `trigger_docs` → `%USERPROFILE%\\Documents\\Paradox Interactive\\Stellaris\\logs\\script_documentation\\` 下的 `scopes.log`、`triggers.log`、`effects.log`、`localizations.log`。wiki 的 Scopes 页最后核对版本是 3.2，明显落后，冲突时以 vanilla 为准。\n\n## 语法与字段\n\n**系统作用域**（四个特殊关键字）：\n- `THIS`：当前作用域。作为切换无意义，但常作为效果的输入参数。\n- `PREV`：上一层作用域；可重复 `prevprev`…最多四层（需要更多时可用 `prevprevprevprev.prevprev` 链式写法）。\n- `FROM`：**调用本段脚本的来源作用域**。例如国家事件触发了一个行星事件，则该行星事件里 `from` 指向那个国家。同样可重复最多四层（`fromfrom`…）。\n- `ROOT`：本段脚本的主作用域。事件的 ROOT 就是事件被触发的那个对象（`planet_event` 里 ROOT 是那颗行星）。在 `scripted_effects` / `scripted_triggers` 中，默认作用域 `this` **不一定**等于 `root`。\n\n**常用切换关键字**（注意真实键名，不要写中文概念名）：\n`owner`、`controller`、`space_owner`、`planet_owner`、`capital_scope`（国家首都行星）、`capital_star`、`home_planet`、`leader`、`ruler`、`heir`、`species`、`owner_species`、`solar_system`（太阳系，**不是** `system`）、`system_star`、`star`、`planet`、`orbit`、`sector`、`starbase`、`fleet`、`ship`、`pop`、`pop_faction`、`war`、`attacker` / `defender`、`federation`、`overlord`、`spynetwork`、`target`。\n\n4.1.7 `common/` + `events/` 中的出现次数（可作为“这些键确实存在且常用”的证据）：`solar_system = {` **1354**、`capital_scope` **1389**、`space_owner` **759**、`owner_species` **258**、`system_star = {` **4**。\n\n**作用域类型**（`is_scope_type =` 可用值）：`none, megastructure, planet, country, ship, pop, fleet, galactic_object, leader, army, ambient_object, species, design, pop_faction, war, alliance, starbase, deposit, observer, sector, astral_rift`；另有 v3.0 后加入的 `archaeological_site`、`first_contact`、`espionage_operation`、`spy_network`、`situation`、`agreement`。vanilla 中 `is_scope_type` 出现 **289** 次。\n\n**链式写法**：`owner.capital_scope.solar_system = { … }` 等价于三层嵌套。注意点号链**不会**产生新的 `PREV`，也不适用于会切换作用域的触发器/效果。\n\n**迭代前缀**：\n- 触发器用 `any_`（存在性）与 `count_`（计数）；**没有 `all_` / `none_`**（4.1.7 全库 0 次）。\n- 效果用 `every_`（对每个对象执行）、`random_`（对随机一个执行）、`ordered_`（按数值排序取第 N 个）。`ordered_` 的参数已由 vanilla 确认：`ordered_owned_planet = { limit = { … } position = 0 order_by = trigger:pop_amount … }`（`common/scripted_effects/00_scripted_effects.txt:5580`，全库 `order_by` 52 次）；完整的 `ordered_*` 键清单见 `effects` 条目。\n- 三者都支持 `limit = { … }` 过滤；块内脚本在**元素自己的作用域**中执行，此时 `this` 是元素、`prev` 是调用方。\n- 效果在不存在的作用域上执行是**静默无事发生、不报错**；触发器在不存在的作用域上执行会报错。\n\n**事件目标**：`save_event_target_as = <名字>`（同 namespace 内可用，vanilla 3925 次）、`save_global_event_target_as = <名字>`（全局，590 次）；用 `event_target:<名字>` 切回去（vanilla 14821 次），或在效果/触发器参数里直接当目标用；用完清理 `clear_global_event_target = <名字>`（99 次）。v3.5 起支持动态名，如 `save_event_target_as = something@root`（点链问题在 v3.9 修复）。\n\n**存在性检查**：切换前先 `exists = <scope>`，例如 `planet = { exists = owner owner = { … } }`。未殖民行星没有 `owner`，此时应改用 `space_owner`。\n\n## 常见错误\n\n- 写 `system`、`CAPITAL`、`LEADER`、`COUNTRY` 这类“概念名”；真正可用的键是 `solar_system`、`capital_scope`、`leader`、`owner`。\n- 在 `scripted_effects` 中假设 `root` 就是 `this`。\n- 以为 `every_…` 之后 `prev` 还是原作用域之外的东西；实际每轮迭代 `this` = 元素、`prev` = 调用方。\n- 在同一条链上既用点号又混用会切换作用域的效果。\n- 把“效果作用于不存在的作用域不报错”误当成“脚本正确”，导致静默失效。\n\n## 待确认\n\n- **`ordered_` 的参数已由 vanilla 确认**（不再是待查项）：`limit`、`position`、`order_by`（`order_by = trigger:pop_amount`）在 `common/scripted_effects/00_scripted_effects.txt:5580` 实际使用。仍不确定的是 `ordered_` 是否支持倒序（如 `invert_order` / 负 `position`）—— 未在 vanilla 见到，需要时查 `effects.log`。\n- **`any_` / `count_` 触发器与 `every_` / `random_` / `ordered_` 效果的名称并非总是同形**（例如触发器是 `any_fleet_in_orbit`，其效果侧对应名与参数需自行统计确认）。不要按对称规律臆造。\n- **`all_` / `none_` 前缀已确认不存在**：brief 假设中提到的 `all_` / `none_`，在 4.1.7 全库 `all_country`、`none_country`、`all_owned_planet`、`none_owned_planet` 均为 **0 次**；只有 `any_` 与 `count_`。要表达“全部/无”请用 `NOT = { any_… }` 或 `count_… = { count = 0 }`。
+"""
+
+syntax_blocks = [
+    "# events/my_mod_scope_events.txt\ncountry_event = {\n\tid = my_mod_scope.1\n\thide_window = yes\n\tis_triggered_only = yes\n\n\timmediate = {\n\t\t# 保存当前国家，供后续事件使用\n\t\tsave_event_target_as = my_mod_actor\n\n\t\tcapital_scope = {\n\t\t\tsave_event_target_as = my_mod_capital\n\n\t\t\t# 首都所在星系\n\t\t\tsolar_system = {\n\t\t\t\t# 星系所属国家（未殖民行星要用 space_owner）\n\t\t\t\towner = {\n\t\t\t\t\tset_country_flag = my_mod_capital_star_visited\n\t\t\t\t}\n\t\t\t}\n\t\t}\n\n\t\t# 迭代：块内 this 是行星，prev 是本事件 ROOT（国家）\n\t\tevery_owned_planet = {\n\t\t\tlimit = {\n\t\t\t\tis_planet_class = pc_continental\n\t\t\t\tnum_districts = { type = any value > 3 }\n\t\t\t}\n\t\t\tadd_modifier = { modifier = my_mod_colony_boon days = 360 }\n\t\t}\n\n\t\t# any_ 是触发器：存在任一满足条件者即为真\n\t\tif = {\n\t\t\tlimit = {\n\t\t\t\tany_owned_planet = { has_building = building_capitol }\n\t\t\t}\n\t\t\tadd_resource = { influence = 20 }\n\t\t}\n\n\t\t# 回到事件目标\n\t\tevent_target:my_mod_capital = {\n\t\t\tadd_planet_devastation = 5\n\t\t}\n\t}\n}"
+]
+
+relationships = [
+    "script-basics",
+    "triggers",
+    "effects",
+    "variables"
+]
+
+validation = [
+    "每个触发器/效果的使用位置先用 logs/script_documentation/effects.log、triggers.log 里标注的 scope 列核对。",
+    "切换 owner / controller / leader 前一律先 exists，否则会往 error.log 灌错误。",
+    "用 is_scope_type = <类型> 断言当前作用域；debugtooltip 与 error.log 结合排查。",
+    "on_action 会覆盖 THIS / FROM 的含义（例如 on_ship_disabled 触发的脚本里 this 是受损舰船、from 是造成损伤的船），不要照搬事件里的直觉。"
+]
+
+source_refs = [
+    "https://stellaris.paradoxwikis.com/Scopes",
+    "https://stellaris.paradoxwikis.com/Conditions",
+    "https://stellaris.paradoxwikis.com/Event_modding",
+    "https://stellaris.paradoxwikis.com/Dynamic_modding",
+    "vanilla（本机 4.1.7）：common/scripted_effects/00_scripted_effects.txt:5559 与 :5580（ordered_owned_planet 的 limit / position / order_by 用法）、common/scripted_effects/00_scripted_effects.txt:16（print_scope_effect，一次打印 This/Root/Prev×4/From×4）",
+    "Scopes（系统作用域、链式、作用域类型表）",
+    "Conditions（scopes 小节、is_scope_type）",
+    "Event_modding（事件种类与 ROOT/FROM 语义）",
+    "Dynamic_modding（动态事件目标、flags 的 @scope）"
+]
+
+title_zh = "作用域体系"
+
+verified_version = "3.14 / 4.0"
+
+aliases = []

@@ -1,0 +1,27 @@
+# Verification scratch output. Recreated or discarded freely; kept out of the repo.
+.selftest/
+.protocol-test/
+.work/
+
+# Caches and other generated output.
+.cache/
+out/
+*.log
+
+# No dependencies are vendored; the project has none and no build step is required to run it.
+node_modules/
+
+# Editor and OS noise.
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini
+
+# NOTE on the knowledge build products. `scripts/build-knowledge.mjs` WRITES
+# `resources/knowledge/stellaris/**` (TOML, derived from the hand-written `knowledge/*.md`) and
+# `src/generated/knowledge.mjs` (the snapshot the server embeds). They are TRACKED, not ignored,
+# for the reason the sibling `RStellarisGui` states in its own .gitignore: this project has no
+# build step, `npm start` / `npx` runs `src/index.mjs` directly, and `package.json` ships `src`
+# and `resources`. An ignored `src/generated/knowledge.mjs` would make a fresh clone a server with
+# no knowledge base until someone ran the build - a clone that does not work is worse than a
+# 745 KB file in the repository. `npm run build` regenerates both deterministically.

@@ -1,0 +1,8 @@
+version="0.1"
+tags={
+	"Species"
+	"Gameplay"
+}
+name="Vanadic Organisms - 钒代镁铁碳基类"
+supported_version="v4.4.*"
+path="D:/StellarisMods/vanadic_species"

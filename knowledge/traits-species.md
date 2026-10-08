@@ -1,0 +1,245 @@
+---
+id: traits-species
+category: content
+title: Species and Leader Traits
+title_zh: 物种特质与领袖特质
+file_types: [common/traits/*.txt, common/trait_tags/*.txt, common/species_classes/*.txt, common/species_archetypes/*.txt, common/leader_classes/*.txt]
+tags: [modifier, allowed_archetypes, opposites, advanced_trait, tags, localized_tags, leader_class, selectable_weight, pop_bonus_workforce_mult]
+related: [civics-origins, technologies]
+sources: [https://stellaris.paradoxwikis.com/Traits_modding, https://stellaris.paradoxwikis.com/Species_modding, https://stellaris.paradoxwikis.com/Modding]
+verified_version: "4.1.7 / 2.6"
+---
+## 概要
+
+**物种特质和领袖特质放在同一个目录** `common/traits/`（4.1.7 共 44 个文件），靠字段而非目录区分：写 `leader_class` / `leader_trait_type` 的是领袖特质，写 `allowed_archetypes` / `category` 的是物种特质。**不存在 `common/leader_traits/` 目录**。权威文档是目录内的三个文件：`000_documentation_species_traits.txt`、`000_documentation_leader_traits.txt`、`000_documentation_autmodding_species_traits.txt`。
+
+## 文件位置与命名
+
+- `common/traits/*.txt`：物种与领袖特质。覆盖类型是 **DUPL/NO — "Entire override ONLY"**：**无法单独覆盖某一个 vanilla 特质**，只能新开文件加新键，或整文件替换（强烈不推荐）。
+- `common/trait_tags/00_tags.txt`：4.0 新增。内容是**裸标识符一行一个，没有 `=`**（如 `organic`、`positive`、`research`、`pop_output`、`leader`、`genetic_ascension`、`special`），共 59 个。
+- `common/species_classes/*.txt`、`common/species_archetypes/*.txt`：见下。
+- `common/leader_classes/*.txt`（领袖职业定义）与 `common/leader_tiers/*.txt`（4.1 新增，vanilla 仅有 `00_default.txt`）。
+
+## 语法与字段
+
+- **物种特质**（4.1.7 计数）：`cost`（整数，或 `cost = { base = N modifier = { add = ... <trigger> } }`，见 `09_ascension_traits.txt` 的 `trait_robust`）、`category`（159；取值 `normal` / `cyborg` / `robotic` / `psionic` / `advanced_genetic` / `overtuned` / `malleable` / `mutation`）、`hidden`（9）、`initial`（392）、`randomized`（372）、`advanced_trait`（26）、`improves_leaders`（13）、`forced_happiness`（2）、`immortal_leaders`、`hide_age`（2）、`modifier`、`triggered_species_modifier`、`triggered_pop_group_modifier`（58）、`triggered_planet_growth_habitability_modifier`、`triggered_planet_pop_group_modifier_for_all` / `_for_species`、`triggered_desc`、`custom_tooltip(_with_modifiers)`、`opposites`（305）、`ai_weight`、`assembly_score`（62）、`sorting_priority`、`leader_age_min` / `leader_age_max`、`allowed_archetypes`、`species_class`、`allowed_planet_classes`、`archetype_override`、`species_class_override`、`allowed_planet_classes_override`、`portrait_override`、`random_weight`、`slave_cost`（228）、`species_potential_add`（250）、`species_possible_add`（75）、`species_possible_merge_add`（108）、`species_possible_remove`、`species_possible_merge_remove`（110）、`tags`（282）、`localized_tags`（96）、`inline_script`（`trait_psionic` 用 `inline_script = "traits/psionic_effects"`）。
+
+**4.1.7 已彻底没有的旧写法**（全目录 0 处）：`is_ascension_trait`、`valid_for_all_ethics`、`triggered_pop_modifier`（改用 `triggered_pop_group_modifier`）、`modification`（由 `species_possible_*` 系列取代）、`potential_crossbreeding_chance`、`leader_trait`（改用 `leader_class`）。
+
+**领袖特质**：`leader_class`（743）、`leader_trait_type`（516；`basic` / `veteran` / `subclass` / `destiny` / `negative`）、`selectable_weight`（302）、`replace_traits`（300）、`councilor_modifier`（361）、`self_modifier`（41）、`starting_ruler_trait`（34）、`allowed_origins` / `forbidden_origins` / `allowed_ethics`、`immortal_leaders`、`ftl_inhibitor`、`can_retreat`、`ethic_destiny_trait`、`notify_on_gained`、`force_councilor_trait`、`custom_subtitle`、`on_gained_effect`、`leader_potential_add`、`requires_traits`、`requires_governments`、`prerequisites`、`opposites`、`trade_acceptance_weight`、`fleet_specialization_tag`，以及一整套作用域修正块 `modifier` / `planet_modifier` / `system_modifier` / `sector_modifier` / `fleet_modifier` / `army_modifier` / `galcom_modifier` / `federation_modifier` / `background_planet_modifier` 及各自的 `triggered_*` 版本。注意 `allowed_ethics`（23）是**领袖特质**用于统治者创建的字段，不是物种特质字段。
+
+```pdx
+# common/trait_tags/00_tags.txt 里需要先声明自定义标签（裸标识符，无 =）
+# tidal_adapted
+# pressure_tolerant
+
+# common/traits/zz_tidal_species_traits.txt
+trait_pressure_tolerant = {
+	cost = 2
+	category = normal
+	initial = no
+	randomized = yes
+
+	allowed_archetypes = { BIOLOGICAL LITHOID }
+	allowed_planet_classes = { pc_ocean pc_gaia }
+
+	opposites = { trait_nonadaptive trait_adaptive }
+
+	tags = { organic positive habitability tidal_adapted }
+	localized_tags = {
+		SPECIES_TRAIT_VOCATIONAL
+	}
+
+	modifier = {
+		pop_environment_tolerance = 0.20
+		miner_jobs_bonus_workforce_mult = 0.10
+	}
+
+	species_possible_add = {
+		can_add_genetic_traits = yes
+	}
+	species_possible_remove = {
+		OR = {
+			can_remove_beneficial_genetic_traits = yes
+			can_remove_vocational_genetic_traits = yes
+		}
+	}
+	species_possible_merge_remove = { always = yes }
+
+	slave_cost = {
+		energy = 500
+	}
+	assembly_score = {
+		modifier = {
+			add = 1.5
+			from = { has_mining_designation = yes }
+		}
+	}
+}
+
+# common/traits/zz_tidal_leader_traits.txt
+leader_trait_tidal_logistician = {
+	cost = 1
+	leader_class = { official }
+	leader_trait_type = veteran
+	randomized = no
+	inline_script = {
+		script = trait/icon
+		CLASS = official
+		ICON = "GFX_leader_trait_tidal_logistician"
+		RARITY = veteran
+		COUNCIL = yes
+		TIER = 1
+	}
+
+	requires_governments = { gov_tidal_synod }
+
+	self_modifier = {
+		species_leader_exp_gain = 0.25
+	}
+	councilor_modifier = {
+		country_starbase_influence_cost_mult = -0.15
+	}
+
+	opposites = { leader_trait_adaptable }
+	selectable_weight = { base = 100 }
+	ai_weight = { base = 50 }
+}
+```
+
+## 宜居偏好特质（habitability preference）的三条硬性要求（Pegasus 4.4.6 核实）
+
+> 本节行号读自 **Pegasus 4.4.6** 的 `<Stellaris>`（`launcher-settings.json` = `Pegasus v4.4.6 (fdde)`）。本主题其余小节基于更旧的 Lyra 4.1.7 笔记，阅读时请注意版本标注。
+
+### 1. 与行星类的配对靠"名字匹配"或 `ideal_planet_class`
+
+`common/traits/01_species_traits_habitability.txt:1-12` 的文件头把规则写全了：
+
+```
+# Matching to planet classes are done via name matching (trait_PLANET_CLASS_KEY_preference) or using setting ideal_planet_class.
+# ideal_planet_class = pc_desert # Must be set and match an existing planet class or the trait will not be treated as a habitability trait.
+# Those traits that create one to one relation between the trait and species ideal planet class can be considered as habitability traits.
+# Note that only one habitability trait can be assigned to a species because habitability traits are mutually exclusive.
+```
+
+即：特质键命名为 `trait_<行星类键>_preference` 就会被自动认成该行星类的宜居偏好（`trait_pc_ocean_preference` ↔ `pc_ocean`，`common/traits/01_species_traits_habitability.txt:146`）；或者显式写 `ideal_planet_class = <行星类>`，且**必须指向真实存在的行星类，否则不会被当作宜居特质**。一个物种只能有一个宜居特质（互斥）。
+
+修正用的 `<行星类>_habitability` token 按行星类名自动生成，自定义行星类同样拥有自己的 `pc_xxx_habitability`：
+
+```pdx
+# common/traits/01_species_traits_habitability.txt:146-165（trait_pc_ocean_preference）
+trait_pc_ocean_preference = {
+	icon = "gfx/interface/icons/traits/trait_pc_ocean_preference.dds"
+	short_name = "trait_pc_ocean_preference_short"
+	allowed_archetypes = { BIOLOGICAL PRESAPIENT LITHOID }
+	sorting_priority = 30
+	species_potential_add = {
+		can_change_habitability_preference = yes
+	}
+	modifier = {
+		pc_ocean_habitability = @primary
+		pc_continental_habitability = @secondary
+		...
+	}
+}
+```
+
+### 2. 起源的 `habitability_preference = <行星类>` 必须有配对的特质
+
+起源本身**不创建特质**：`common/governments/civics/00_origins.txt` 的 `habitability_preference` 只是"给该起源的物种指定理想行星类"，要真的落地就得存在一个与之配对的特质。原版**每一个** `habitability_preference` 用例都有对应特质（全部 9 处用例）：
+
+| 起源（block 行） | `habitability_preference` | 配对特质（`01_species_traits_habitability.txt`） |
+| --- | --- | --- |
+| `origin_red_giant`（`00_origins.txt:206`） | `pc_volcanic`（`:214`） | `trait_pc_volcanic_preference`（`:249`） |
+| `origin_cosmic_dawn`（`00_origins.txt:266`） | `pc_volcanic`（`:274`） | 同上 |
+| `origin_ocean_paradise`（`00_origins.txt:1668`） | `pc_ocean`（`:1675`） | `trait_pc_ocean_preference`（`:146`） |
+| `origin_ocean_machines`（`00_origins.txt:1722`） | `pc_ocean`（`:1729`） | 同上 |
+| `origin_shattered_ring`（`00_origins.txt:1872`） | `pc_shattered_ring_habitable`（`:1878`） | `trait_pc_shattered_ring_habitable_preference`（`:450`） |
+| `origin_void_dwellers`（`00_origins.txt:1916`） | `pc_habitat`（`:1923`） | `trait_pc_habitat_preference`（`:366`） |
+| `origin_void_machines`（`00_origins.txt:1979`） | `pc_habitat`（`:1986`） | 同上 |
+| `origin_life_seeded`（`00_origins.txt:2288`） | `pc_gaia`（`:2294`） | `trait_pc_gaia_preference`（`:328`） |
+| （非可玩起源） | `pc_gaia`（`common/governments/civics/01_origins_non_playable.txt:174`） | 同上 |
+
+**结论：给自定义行星类写 `habitability_preference = pc_my_class` 时，必须同时提供 `trait_pc_my_class_preference`（或带 `ideal_planet_class = pc_my_class` 的特质），否则该物种没有理想行星类**——这是"自定义行星类可殖民、但物种创建/游戏里没有偏好行星"的典型症状，也正是本机 geocentric mod 必须定义 `trait_pc_geocentric_earth_preference` 的原因。
+
+### 3. 物种预览背景 sprite 必须存在（否则日志报 unknown sprite）
+
+宜居偏好特质还牵动 **species view 的背景图**：引擎按 `GFX_species_selected_background_trait_<特质键>` 找 sprite，缺失时打印
+
+```
+Trying to change sprite to unknown sprite 'GFX_species_selected_background_trait_<trait key>'
+```
+
+（格式串 `Trying to change sprite to unknown sprite '%s'` 在 `<Stellaris>\stellaris.exe` 内确认。）
+
+原版给每一个偏好特质都写了同名 sprite，全部集中在 `interface/topbar_species_view.gfx:195-355`（`:195` 的 `# species backgrounds` 注释起，共 **39** 条 `GFX_species_selected_background_trait_*`），贴图取自 `gfx/portraits/species_preview_backgrounds/`：
+
+```pdx
+# interface/topbar_species_view.gfx:195-215（节选）
+	# species backgrounds
+	spriteType = {
+		name = "GFX_species_selected_background_fallback"
+		texturefile = "gfx/portraits/species_preview_backgrounds/species_preview_bg_continental.dds"
+	}
+	spriteType = {
+		name = "GFX_species_selected_background_trait_pc_arid_preference"
+		texturefile = "gfx/portraits/species_preview_backgrounds/species_preview_bg_arid.dds"
+	}
+	spriteType = {
+		name = "GFX_species_selected_background_trait_pc_continental_preference"
+		texturefile = "gfx/portraits/species_preview_backgrounds/species_preview_bg_continental.dds"
+	}
+```
+
+`interface/topbar_species_view.gui:91` 用的是兜底 sprite（`spriteType = "GFX_species_selected_background_fallback"`），所以缺 sprite 时**界面仍有背景**，只是日志多一条 unknown sprite。修正方式是给自己的特质补一条同名 sprite（复用原版贴图即可，不需要新美术资源）：
+
+```pdx
+# interface/zz_my_traits.gfx（mod 里自建 .gfx 文件）
+spriteTypes = {
+	spriteType = {
+		name = "GFX_species_selected_background_trait_pc_my_class_preference"
+		texturefile = "gfx/portraits/species_preview_backgrounds/species_preview_bg_continental.dds"
+	}
+}
+```
+
+## 校验要点
+
+- 修正名必须真实存在。判断方法：静态修正有 `localisation/english/modifiers*.yml` 里的 `MOD_<大写键>:`；而 **job 级/经济类别级修正是自动生成的，没有 `MOD_` 静态键**（如 `planet_jobs_energy_produces_mult` 107 处、`researcher_jobs_bonus_workforce_mult` 32 处只在 `common/` 脚本里出现）。不要用只存在于 `00_defines.txt` 的名字（例如 define 的 `SCIENCE_SHIP_SURVEY_SPEED_MULT` 对应的真正修正是 `science_ship_survey_speed`，用于 `00_civics.txt:2870`）。
+- `common/species_classes/*.txt` 字段：`archetype`（34）、`possible`（16，用的是政府/伦理需求清单语法）、`trait = "trait_organic"`（27）、`graphical_culture`（45）、`move_pop_sound_effect`（35）、`playable`（32）、`randomized`（32）、`species_trait_points`、`species_max_traits`、`portrait_modding`、`ethics_to_prefer`。**4.1.7 里 `portraits` / `custom_portraits` 为 0 处**：头像已改由 `common/portrait_sets/` 与 `common/portrait_categories/` 定义（`00_species_classes.txt:2` 的注释即指向 portrait_sets），旧 Wiki 教你在 species_classes 里加 `custom_portraits` 的做法已过时。
+- `common/species_archetypes/*.txt` 键：`BIOLOGICAL`、`ROBOT`、`MACHINE`、`PRESAPIENT`、`LITHOID`、`OTHER`；字段 `species_trait_points`、`species_max_traits`、`robotic`、`uses_modifiers`、`inherit_trait_points_from`、`inherit_traits_from`、`resources = { category = planet_pops ... }`。
+- **领袖特质的图标有两种写法**：4.1.7 主流是 `inline_script = { script = trait/icon CLASS = ... ICON = "GFX_..." RARITY = ... COUNCIL = ... TIER = ... }`（752 处），少数用显式分层 `icon = { inline_script = trait/icon_element/... layer = { icon = "gfx/....dds" } }`（如 `15_unplugged_traits.txt:41`）。`color = "<颜色名>"` 的颜色名取自 `common/named_colors/`（`green`、`red`、`teal` 等确实存在）。
+- localisation：物种/领袖特质统一用 `trait_x` 与 `trait_x_desc`（如 `trait_ingenious` / `trait_ingenious_desc`）。
+- 新增特质标签后，可用 `trait_has_tag` / `trait_has_any_tag` / `trait_has_all_tags` 判断。
+- **宜居偏好特质（Pegasus 4.4.6 核实）**：键名必须是 `trait_<行星类键>_preference`，或显式写 `ideal_planet_class = <行星类>` 且该行星类真实存在；否则该特质**不会**被当成宜居特质（`common/traits/01_species_traits_habitability.txt:4-5`）。一个物种只能有一个宜居特质（`:7`）。
+- 起源写 `habitability_preference = <行星类>` 时，必须存在配对特质，否则该起源的物种没有理想行星类（原版 9 处用例全部有配对特质，对照表见上文）。
+- 自定义宜居偏好特质要在 `interface/*.gfx` 里补 `GFX_species_selected_background_trait_<特质键>`，否则日志报 `Trying to change sprite to unknown sprite '...'`；原版 39 条都在 `interface/topbar_species_view.gfx:195-355`，`interface/topbar_species_view.gui:91` 用的是 `GFX_species_selected_background_fallback`。
+- `modifier` 里的 `<行星类>_habitability` token 是按行星类名**自动生成**的，自定义行星类同样可用（如 `pc_my_class_habitability`）；写错名字不报错但也不生效（原版用法见 `01_species_traits_habitability.txt:150-165`）。
+
+## 常见错误
+
+1. **使用 `is_ascension_trait`**：4.1.7 全库 0 处。想表达"高级特质"用 `advanced_trait = yes`（配合 `common/technology` 里 feature flag `add_advanced_traits` 的科技）。
+2. **照 4.0 开发者日志写 `pop_job_bonus_workforce_mult` / `pop_job_workforce_mult`**：这两个名字在 4.1.7 的 `common/` 与 `localisation/` 中均 0 处。真实 token 是 `pop_bonus_workforce_mult`（本地化显示为 "Job Efficiency"）、`<job>_jobs_bonus_workforce_mult`、`pop_<job>_bonus_workforce_mult`、`<类别>_cat_bonus_workforce_mult`；`pop_workforce_mult`（"Workforce"）与 `job_max_workforce_mult`（"Max Workforce"）也有本地化键，但后者在 vanilla 脚本里 0 处使用。
+3. **给物种特质写 job 产出乘数**（如 `researcher_jobs_produces_mult`）：4.0 起物种特质不再支持产出乘数，必须改成 workforce 形式（`trait_intelligent` 现在写 `researcher_jobs_bonus_workforce_mult = 0.10`）。行星/帝国级来源（civic、传统、建筑）的 `planet_jobs_*_produces_mult` 仍然有效，两者相乘。
+4. 领袖特质用 `admiral` / `general` / `governor` / `ruler`：4.x 的 `leader_class` 取值只有 `commander`、`official`、`scientist`（分别 394 / 393 / 381 处）。
+5. 试图只覆盖一个 vanilla 特质——该目录是 DUPL/NO，做不到；请加新键。
+6. 把 `modification = no` 当物种特质字段写：该字段在 4.1.7 的 traits 目录已无任何赋值出现。
+7. **自定义宜居偏好特质的键名与行星类对不上**：名字匹配要求逐字对应 `trait_<行星类键>_preference`（少一个 `_`、大小写不同、写成中文都不会被认成宜居特质），此时要么改名，要么显式写 `ideal_planet_class = <行星类>`（Pegasus 4.4.6：`common/traits/01_species_traits_habitability.txt:4-5`）。
+8. **起源写了 `habitability_preference = pc_my_class` 却没有配对特质**：物种没有理想行星类（原版 9 处 `habitability_preference` 全部有配对特质；这也是"自定义行星类能殖民、但物种创建界面没有偏好"的常见原因）。
+9. **自定义宜居特质忘了补 `GFX_species_selected_background_trait_<特质键>`**：界面会退回 `GFX_species_selected_background_fallback`，所以**看起来没事**，但 `logs/error.log` 会不断出现 `Trying to change sprite to unknown sprite '...'`。
+
+## 待确认
+
+- `job_max_workforce_mult` 与 `pop_workforce_mult` 有本地化键却无 vanilla 脚本用例，实际生效方式未确认。
+- `random_weight`、`leader_age_max`、`triggered_desc` 的语义只来自 2.6 Wiki 与文件注释，未逐条实测。
+- `common/leader_tiers/00_default.txt`（4.1 新增）的字段未核对。
+- **Pegasus 4.4.6**：引擎取物种预览背景时是"遍历物种的哪个特质、按什么顺序、是否有缓存"未核对；只确认按 `GFX_species_selected_background_trait_<特质键>` 取名、缺失时打印 unknown sprite 并退回 `GFX_species_selected_background_fallback`（`interface/topbar_species_view.gui:91`）。
+- **Pegasus 4.4.6**：`ideal_planet_class` 与"`trait_<行星类>_preference` 名字匹配"两者同时存在且指向不同行星类时的优先级未核对。
+
+## 参考
+
+- [Traits modding (Stellaris Wiki)](https://stellaris.paradoxwikis.com/Traits_modding)
+- [Species modding (Stellaris Wiki)](https://stellaris.paradoxwikis.com/Species_modding)
+- [Modding — Common folder 覆盖类型表 (Stellaris Wiki)](https://stellaris.paradoxwikis.com/Modding)
+- 本地核对：`common/traits/000_documentation_species_traits.txt`、`000_documentation_leader_traits.txt`、`04_species_traits.txt`（`trait_intelligent`/`trait_ingenious`）、`09_ascension_traits.txt`（`trait_robust`）、`00_generic_leader_traits.txt`、`common/trait_tags/00_tags.txt`、`common/species_classes/00_species_classes.txt`、`common/species_archetypes/00_species_archetypes.txt`、`localisation/english/modifiers_3_l_english.yml:201-206`（Stellaris Lyra v4.1.7）
+- Pegasus 4.4.6 追加核对（读自 `<Stellaris>`）：`common/traits/01_species_traits_habitability.txt:1-12`（宜居特质的名字匹配/`ideal_planet_class` 规则）与 `:146/249/328/366/450`（`trait_pc_ocean/volcanic/gaia/habitat/shattered_ring_habitable_preference`）、`common/governments/civics/00_origins.txt`（`habitability_preference` 9 处）与 `01_origins_non_playable.txt:174`、`interface/topbar_species_view.gfx:195-355`（39 条 `GFX_species_selected_background_trait_*`）、`interface/topbar_species_view.gui:91`（fallback sprite）、`stellaris.exe` 内的 `Trying to change sprite to unknown sprite '%s'` 格式串

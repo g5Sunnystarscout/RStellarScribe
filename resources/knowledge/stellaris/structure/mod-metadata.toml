@@ -1,0 +1,66 @@
+id = "mod-metadata"
+
+title = "Mod Metadata and Descriptor Fields"
+
+category = "structure"
+
+file_types = [
+    "descriptor.mod",
+    "modname.mod",
+    "thumbnail.png"
+]
+
+tags = [
+    "descriptor",
+    "supported_version",
+    "tags",
+    "remote_file_id",
+    "dependencies",
+    "workshop",
+    "checksum"
+]
+
+body = """
+## 概要\n\ndescriptor 用的是\"类似 Valve VDF\"的键值语法（`= { ... }` 块、字符串加双引号、块内逐行列出元素）。2.4+ 启动器以 `descriptor.mod` 为准，并回写 mod 目录下的 `<modname>.mod`。官方文档明确列出的字段只有 8 个：`name`、`path`、`dependencies`、`picture`、`tags`、`version`、`supported_version`、`remote_file_id`——**除此之外的字段不要凭 HOI4 的经验往里写**（见待确认里的 `replace_path`）。`supported_version` 只是给启动器看的\"兼容性提示\"，**不影响代码加载**；写通配符时启动器可能在 `error.log` 里留一条提示，那是噪音不是错误。\n\n## 文件位置与命名\n\n- `…\\Documents\\Paradox Interactive\\Stellaris\\mod\\<modname>.mod`：本地模组的启动器入口，**必须**有 `path`；上传到创意工坊后启动器会把它改写成 `remote_file_id=` + `archive=` 形态。\n- `…\\Documents\\Paradox Interactive\\Stellaris\\mod\\<modname>\\descriptor.mod`：模组根目录里的元数据副本，**不要**写 `path`（写了也被忽略）。\n- `thumbnail.png`：2.4+ 缩略图必须叫这个名字（PNG），建议 ≥512×512 且 **小于 1 MB**，否则不会上传。\n\n## 语法与字段\n\n一个字段齐全的 `descriptor.mod`（`name` 必填，其余可选；同一份内容可以直接当作本地 `<modname>.mod`，只在其中额外加 `path`）：\n\n\n\n各字段的含义与取值：\n\n| 字段 | 必需 | 含义 |\n| --- | --- | --- |\n| `name` | 是 | 模组显示名。同名模组只会加载 `.mod` 文件排在前面的那个。 |\n| `path` | 仅 `<modname>.mod` | 模组根目录，绝对路径或相对 `…\\Documents\\Paradox Interactive\\Stellaris`；**必须用 `/`**。 |\n| `dependencies` | 否 | 块，逐行列出模组**显示名**；这些模组存在时本模组排在其后加载。用于子模组/兼容补丁。 |\n| `picture` | 否 | 创意工坊缩略图；2.4+ 固定为 `thumbnail.png`。 |\n| `tags` | 否 | 创意工坊标签块；**最多 10 个**（启动器 2022.10 起）；含空格的标签要加引号。 |\n| `version` | 否 | 任意字符串，只作为模组自身版本显示，**不是**游戏版本。 |\n| `supported_version` | 推荐 | 模组支持的游戏版本，写 `v3.14.1` 或 `v3.14.*`。 |\n| `remote_file_id` | 否 | 启动器上传后写入的 Steam 创意工坊 ID，不要手改。 |\n\n实机统计（4.1.7 用户目录 + 创意工坊内容目录）——`.mod` 共 33 个、`descriptor.mod` 共 32 个，字段出现次数：\n\n| 字段 | 在 `<modname>.mod` 中 | 在 `descriptor.mod` 中 |\n| --- | --- | --- |\n| `name` | 33 | 32 |\n| `version` | 32 | 32 |\n| `supported_version` | 33 | 32 |\n| `tags` | 33 | 32 |\n| `remote_file_id` | 32 | 31 |\n| `path` | 32 | **0** |\n| `picture` | 16 | 15 |\n| `archive` | 1 | 0 |\n| `dependencies` | **0** | **0** |\n| `replace_path` | **0** | **0** |\n\n三个结论直接可判定：① `path` 只出现在 `mod\\` 下的 `.mod` 里，**没有一个** `descriptor.mod` 写 `path`；② `dependencies` 在 65 个真实文件中一次都没出现（文档化但生态里极少用）；③ `replace_path` 在真实文件中**零出现**，佐证它不属于 Stellaris 的 descriptor 字段。\n\n真实模组中实际用过的 `tags` 取值（按出现次数）：`Sound`、`Galaxy Generation`、`Graphics`、`Translation`、`Species`、`Leaders`、`Utilities`、`Gameplay`、`Buildings`、`Loading Screen`、`Overhaul`、`Military`、`Events`。\n\n真实模组的 `supported_version` 写法（取自上述文件）：`v4.3.3`、`v4.4.*`、`v4.3.*`、`v4.*`、`v4.0.6`、`v3.14.*`、`v3.14.15926`、`2.8.1`、`2.6.*`、`1.2.5`、以及单写一个 `*`。可见第二段通配（`v4.*`）和整体通配（`*`）在生态中确实存在并被启动器接受。\n\n真实 `path` 形态（创意工坊订阅模组，绝对路径 + 正斜杠）：\n\n## 常见错误\n\n- 在 `descriptor.mod` 里写 `path`：2.4+ 启动器忽略它，改动看起来\"没生效\"。\n- 把游戏版本写进 `version`、把模组版本写进 `supported_version`，两者互换。\n- `supported_version` 写成 `v3.*.1` 或 `v3.*`：只有最后一段可通配。\n- 以为 `supported_version` 不匹配会导致模组不加载：不会，它只是启动器提示。\n- 依赖同一模组的两个 `dependencies` 条目写成工坊 ID 或文件夹名：应为模组显示名。\n- 群里各自启用\"差不多\"的模组去打多人：校验和不一致，直接进不去。\n- 使用自造标签上传 Paradox Mods：非预定义标签可能导致上传被拒。\n- 忽略了 Steam 未开启云同步时上传按钮（Manage）一直灰色。\n\n## 待确认\n\n- `replace_path`：Stellaris 官方 Modding 页的 descriptor 字段表中**没有**该字段，wiki 全站搜索也没有对应条目，实机 65 个真实描述文件中**零出现**。因此不应在 Stellaris 的 descriptor 里使用它（这是 HOI4 的字段）。未找到\"明确不支持\"的官方表述，故结论是\"未见文档且生态零使用\"。\n- `tags` 的完整预定义取值列表：wiki 只说\"使用预定义之外的标签可能阻止上传 Paradox Mods\"，只给出示例值 `Graphics`、`Economy`、`Overhaul`（Modding 页）与 `Gameplay`（教程）。本条目给出的是**实机 33 个真实模组中实际出现的 13 个取值**，不等于完整合法集合（例如 wiki 示例里的 `Economy` 在本机样本中未出现）。\n- 除上述 8 个字段外是否还有被启动器接受但未文档化的字段未逐一验证；`archive=\"mod/x.zip\"` 在实机出现 1 次（`Steam Workshop` 页称其为工坊下载后的形态），但不在官方字段表中。\n- `supported_version` 写第二段通配或单写 `*` 是否真的只产生 `error.log` 噪音、不影响加载：来自 wiki 脚注与教程表述，未在 4.1.7 实测。\n- 多人校验和的具体显示位置与取值规则（除\"主菜单与 MP 大厅里显示 `x.y.z (hash)`\"外）未在官方 wiki 页面核实，仅来自 Paradox 官方论坛 staff 回复。
+"""
+
+syntax_blocks = [
+    "name=\"My Scribe\"\nversion=\"1.0.0\"\nsupported_version=\"v3.14.*\"\ntags={\n\t\"Gameplay\"\n\t\"Events\"\n\t\"Overhaul\"\n}\npicture=\"thumbnail.png\"\ndependencies={\n\t\"My Framework Mod\"\n}\nremote_file_id=\"1234567890\"",
+    "path=\"D:/SteamLibrary/steamapps/workshop/content/281990/2050053286\""
+]
+
+relationships = [
+    "mod-structure",
+    "localisation-basics"
+]
+
+validation = [
+    "name 存在且非空；descriptor.mod 与 <modname>.mod 的 name 一致。",
+    "<modname>.mod 里 path 用的是 /，且指向真实存在的模组根目录。",
+    "descriptor.mod 里没有 path（实机统计 32 个真实 descriptor.mod 中 path 出现 0 次）。",
+    "supported_version 形如 v4.x.y 或 v4.x.*；只把最后一段写成 *（游戏只支持最后一段通配，第二段通配虽被启动器接受但会写 error.log）。生态中确实存在 v4.* 与单写 * 的用法，但那属于超出文档的写法。",
+    "3.12 之前的版本号不带 v 前缀；面向 3.12+ 的模组应带 v（实机同时见到 2.8.1、1.2.5 这类老式无前缀写法）。",
+    "tags 数量 ≤ 10，且只使用真实模组中用过的取值（见上表 13 个）或其他预定义标签，含空格的标签加了引号。",
+    "dependencies 里写的是模组显示名，不是文件名、不是工坊 ID；若使用它，确保不是靠它来实现覆盖（它只影响加载先后）。",
+    "version 不承担兼容性判断职责，别把它当作 supported_version 使用。",
+    "上传前 picture=\"thumbnail.png\" 已存在，且 thumbnail.png 在模组根目录、小于 1 MB（真实模组中约一半写了 picture）。",
+    "不生成 replace_path：65 个真实描述文件中零出现，官方字段表也没有它。",
+    "多人游戏中所有玩家启用完全相同的模组集合与版本；校验和不一致时无法进入同一局。"
+]
+
+source_refs = [
+    "https://stellaris.paradoxwikis.com/Modding",
+    "https://stellaris.paradoxwikis.com/Modding_tutorial",
+    "https://stellaris.paradoxwikis.com/Steam_Workshop",
+    "https://forum.paradoxplaza.com/forum/threads/syncing-modded-games-mods-dlcs-and-checksums.1516901/",
+    "Modding（descriptor 字段表、thumbnail 要求、上传与更新流程）",
+    "Modding tutorial（手工创建两个 descriptor 的最小示例、通配符说明）",
+    "Steam Workshop（上传步骤、上传前后的 .mod 差异、云同步要求）",
+    "Paradox 论坛 — Syncing modded games: Mods, DLCs and Checksums（校验和与 DLC 的关系）"
+]
+
+title_zh = "模组元数据与 descriptor 字段"
+
+verified_version = "实机统计 Stellaris 4.1.7 (Lyra) 用户的 33 个 .mod 与 32 个 descriptor.mod 真实字段"
+
+aliases = []

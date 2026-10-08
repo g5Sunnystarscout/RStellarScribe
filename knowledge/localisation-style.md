@@ -1,0 +1,77 @@
+---
+id: localisation-style
+category: localisation
+title: Vanilla Localisation Style Guide
+title_zh: vanilla 本地化文风规范
+file_types: [localisation/**/*.yml]
+tags: [style-guide, title-case, sentence-case, character-limit, unicode]
+related: [localisation-basics, localisation-codes]
+sources: [https://stellaris.paradoxwikis.com/Localisation_modding]
+verified_version: "wiki Style Guide 小节（页面最后核对 3.1，但该表为长期沿用的文风约定）"
+---
+
+## 概要
+
+wiki 的文风表是让自制内容"看起来像 vanilla"的最短路径。它只给四件事：**大小写风格**（Title Case / Sentence case）、**标点**（有无句末标点）、**字符上限**、以及一条硬性禁令（若干 Unicode 字符非法）。字符上限**不是**硬限制：超出后视位置不同，可能被截断、可能撑坏 UI、也可能只是难看。因此"生成内容"时应把上限当目标而非红线，宁短勿长。
+
+## 文件位置与命名
+
+适用对象是 `localisation/**/*_l_<language>.yml` 里的所有字符串，重点是事件名、事件描述、事件选项、以及特质/修正/建筑/思潮等定义项的名字与描述——这四类是 Agent 最常生成、也最容易被 UI 惩罚的文本。
+
+## 语法与字段
+
+```pdx
+l_english:
+ mymod_event.1.name:0 "Exotic Woodwind"
+ mymod_event.1.desc:0 "Music has taken many forms among the beings we have encountered since leaving [Root.GetHomeWorldName]. Whatever this instrument is, it is unlike any of our own."
+ mymod_event.1.a:0 "An excellent time to learn more about their culture."
+ mymod_event.1.b:0 "Let us be careful and study this instrument."
+ trait_mymod_crystalline:0 "Crystalline Skin"
+ trait_mymod_crystalline_desc:0 "Their epidermis refracts light into faint prismatic bands."
+```
+
+| 位置 | 大小写 | 标点 | 上限 | 说明 |
+| --- | --- | --- | --- | --- |
+| 事件名 | Title Case | 无 | 50 | 例 "Exotic Woodwind" |
+| 事件描述 | Sentence case | 常规标点 | 2000 | 可含 `[Root...]` 等富文本 |
+| 事件选项 | Sentence case | **必须有句末标点** | 70 | 例 "It stays." |
+| 特质/修正/建筑/思潮等的名字 | Title Case | 无 | 30 | 例 "Building Cost"、"Very Strong" |
+| 上述项的描述 | Sentence case | 常规标点 | 200 | 例 "The impact site of the meteorite…" |
+| UI 按钮 | Sentence case 或 Title Case | 无 | 视 UI | 例 "Withdraw" |
+| UI 提醒 | Title Case | 无 | 视 UI | 例 "Relic Activation Available" |
+
+## 校验要点
+
+- 事件名：Title Case（每个实词首字母大写），**结尾不带任何标点**，长度 ≤ 50。
+- 事件描述：Sentence case（仅首字母与专有名词大写），句末带标点，长度 ≤ 2000。
+- 事件选项：Sentence case，**结尾必须带句号/问号/叹号**，长度 ≤ 70。
+- 特质、修正、建筑、思潮等定义项的名字：Title Case，无句末标点，长度 ≤ 30。
+- 上述定义项的描述：Sentence case，句末带标点，长度 ≤ 200。
+- UI 按钮与提醒：按钮可用 Sentence case 或 Title Case 且不加句末标点；提醒用 Title Case 不加标点。
+- Title Case 的判定要按英文实词规则：冠词、并列连词、短介词（a/an/the/and/or/of/in/on/to/for/with）小写，其余实词首字母大写。
+- Sentence case 的判定：整句只有第一个词与专有名词大写，其余小写。
+- 字符串内不出现以下任一字符：`„` `“` `‚` `‘` `–` `”` `’` `…` `—`（实机核对：这 9 个字符在 vanilla 英文本地化约 91k 条中出现次数均为 0）。英文撇号写 `'`、破折号写 `-`、省略号写 `...`。
+- 富文本标记（`$KEY$`、`£energy£`、`§R...§!`、`[Root.GetName]`）不参与字符计数之外的判断，但不要用它们来"突破"上限。
+- 描述里引用的 key、图标、作用域命令都真实存在（见 localisation-codes 的校验要点）。
+- 同一份文本若复制到 10 个语言文件，标题大小写与句末标点规则在英文文件里必须成立（其他语言按其语言习惯处理）。
+
+## 常见错误
+
+- 事件名写成句子并带句号（"A Strange Signal."）——vanilla 事件名不带标点。
+- 事件选项忘了句末标点，看起来像半截话。
+- 选项过长（> 70）导致按钮文字被截断。
+- 用 curly apostrophe `’` 而不是 `'`：可能被渲染成 `?`。
+- 特质名字带句末标点或混用大小写（"very strong" vs "Very Strong"）。
+- 用 Title Case 写事件描述，整段像标题。
+- 把英文文件里含 `$KEY$` 的句子直译到其他语言而不检查语法（引用共享 key 在非主格语境下会别扭）。
+- 认为超过 50/2000/70/30/200 一定会报错：不会报错，只会出显示问题。
+
+## 待确认
+
+- 字符上限是"建议值"（wiki 原文：不是硬限制），它的实际后果依 UI 位置而异；wiki 未给出每个上限对应的具体 UI 控件，本机未逐个实测。
+- wiki 的 Style Guide 表格页面标注为"至少部分内容最后核对于 3.1"，4.1.7 是否仍是同一套大小写与上限约定未在 4.x 之后重新确认；但"避开那 9 个 Unicode 字符"一项已被 4.1.7 实机文件佐证。
+- 事件名/描述的 Title Case、Sentence case 规则由 wiki 示例归纳，wiki 未给出正式的大小写定义文法，本条目对短介词、连词的处理属常规英文标题规范，非 Stellaris 专有规则。
+
+## 参考
+
+- [Localisation modding（Style Guide 表、非法 Unicode 字符清单、字符上限说明）](https://stellaris.paradoxwikis.com/Localisation_modding)

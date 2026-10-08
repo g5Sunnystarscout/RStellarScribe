@@ -1,0 +1,53 @@
+# ------------------------------------------------------------------------------------
+# Events behind the aerospace carrier's bridge.
+#
+# aerospace_carrier.1 - the fleet event the carrier's own button fires (scripted_action ->
+#   on_action -> fleet_event). A fleet event keeps the fleet scope, which is what the button
+#   needs; the window itself is a country-scope window, so this event scopes up to the owner
+#   and opens it.
+#
+# aerospace_carrier.2 - the hand-written GUI. `custom_gui` / `custom_gui_option` name
+#   containerWindowTypes declared in interface/zz_aerospace_carrier_gui.gui, exactly as
+#   vanilla's enclave windows do (events/nomads_events_1.txt:2291). The three action buttons
+#   inside that window are effectbuttonTypes pointing at common/button_effects/, where `this`
+#   is the selected object - i.e. the carrier the player had selected.
+# ------------------------------------------------------------------------------------
+
+namespace = aerospace_carrier
+
+fleet_event = {
+	id = aerospace_carrier.1
+	title = aerospace_carrier.1.name
+	desc = aerospace_carrier.1.desc
+	picture = GFX_evt_alien_nature
+
+	is_triggered_only = yes
+
+	immediate = {
+		owner = {
+			country_event = {
+				id = aerospace_carrier.2
+			}
+		}
+	}
+
+	option = {
+		name = aerospace_carrier.1.a
+	}
+}
+
+country_event = {
+	id = aerospace_carrier.2
+	title = aerospace_carrier.2.name
+	desc = aerospace_carrier.2.desc
+	picture = GFX_evt_alien_nature
+
+	is_triggered_only = yes
+
+	custom_gui = "aerospace_carrier_bridge_window"
+	custom_gui_option = "aerospace_carrier_bridge_option"
+
+	option = {
+		name = aerospace_carrier.2.a
+	}
+}

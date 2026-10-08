@@ -1,0 +1,16 @@
+# ------------------------------------------------------------------------------------
+# Callback for the carrier's "muster armies" button, referenced by `on_completed` in
+# common/scripted_actions/zz_aerospace_carrier_actions.txt.
+#
+# on_action blocks in 4.4.6 accept `events` and `random_events` only - a bare
+# `effect = { }` is rejected at load time with "Unexpected token: effect" (vanilla uses
+# `events` 396 times and `random_events` 78 times, and never `effect`). So the work is done
+# by a fleet event, which is the event type whose scope is the fleet the button was
+# pressed on.
+# ------------------------------------------------------------------------------------
+
+on_aerospace_carrier_muster_army = {
+	events = {
+		aerospace_carrier.1
+	}
+}

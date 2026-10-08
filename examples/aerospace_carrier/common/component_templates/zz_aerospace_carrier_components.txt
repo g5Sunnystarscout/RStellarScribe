@@ -1,0 +1,51 @@
+# ------------------------------------------------------------------------------------
+# 集结平台 / Muster Platform - the new ship component.
+#
+# Two jobs, both required by the ship it is fitted to:
+#   1. `scripted_action` gives the ship its own button in the fleet view. The manual at
+#      common/scripted_actions/99_README_SCRIPTED_ACTIONS.txt opens with:
+#        "Example of a scripted action, to be enabled by a ship component via the
+#         scripted_action field"
+#      and common/on_actions/02_component_on_actions.txt confirms the callback wiring
+#      ("Fired by a scripted_action ... in utility_component_template on a ship").
+#   2. Ship-scope bombardment modifiers.
+#
+# It is fitted by the starbase building of the same name via `equipped_component`, which is
+# how components reach a starbase-class hull (cf. vanilla `arkship_growth_chamber` doing
+# `equipped_component = ARKSHIP_GROWTH_AURA`).
+#
+# Component fields follow common/component_templates/00_utilities_aux.txt (REACTOR_BOOSTER_1).
+# ------------------------------------------------------------------------------------
+
+utility_component_template = {
+	key = "MUSTERING_PLATFORM"
+	size = aux
+	icon = "GFX_ship_part_aura_bombardment"
+	icon_frame = 1
+	power = -10
+
+	resources = {
+		category = ship_components
+		cost = {
+			alloys = 25
+		}
+	}
+
+	prerequisites = { "tech_aerospace_carrier" }
+	component_set = "MUSTERING_PLATFORM"
+
+	# The button itself is declared on the ship size instead of here, so that it exists as
+	# soon as a carrier does rather than only after this fitting is installed. Both places
+	# are legal (the scripted_action README describes the component route; vanilla uses the
+	# ship-size route at 00_ship_sizes.txt's own field list), but declaring it twice would
+	# risk the fleet view listing the order twice.
+
+	modifier = {
+		ship_orbital_bombardment_mult = 0.25
+		ship_orbital_bombardment_army_damage_mult = 0.25
+	}
+
+	ai_weight = {
+		weight = 10
+	}
+}

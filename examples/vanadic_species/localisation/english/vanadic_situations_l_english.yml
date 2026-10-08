@@ -1,0 +1,9 @@
+﻿l_english:
+ vanadic_stage_onset:0 "供给下滑"
+ vanadic_stage_crisis:0 "全面短缺"
+ vanadic_approach_ration:0 "配给钒酸盐"
+ vanadic_approach_import:0 "进口替代品"
+ vanadic_depletion:0 "钒枯竭"
+ vanadic_depletion_type:0 "钒枯竭"
+ vanadic_depletion_desc:0 "我们过度开采了那条钒脉。钒酸盐的供给正在下滑，而我们的金属酶系离不开它。"
+ vanadic_depletion_monthly_change_tooltip:0 "建造冶炼设施、或改用替代合金，可以减缓下滑。"

@@ -1,0 +1,54 @@
+id = "ship-components"
+
+title = "Ship Components"
+
+category = "content"
+
+file_types = [
+    "common/component_templates/*.txt"
+]
+
+tags = [
+    "utility_component_template",
+    "slot",
+    "ship_ability",
+    "resources",
+    "upkeep"
+]
+
+body = """
+## 概要\n\n`common/component_templates/` 是装备本身（武器、通用、舰载机）的定义。本版本（Pegasus v4.4.6，`<Stellaris>`）经实机核对，顶层根块**只有三个**：`utility_component_template` 848 次、`weapon_component_template` 591 次、`strike_craft_component_template` 61 次。**不存在 `component_template` 这个通用根块，也不存在 `slot` / `utility_slot` / `triggered_desc` / `fits_on_slot` 这些字段**——它们在旧教程和 Wiki 里常见，但本版本没有对应加载器。\n\n组件本身**不声明自己装在哪个槽**。装载关系是反过来的：舰段（`common/section_templates/`）用 `small_utility_slots = 5`、`aux_utility_slots = 2`、`component_slot = { template = \"small_turret\" }` 声明槽，游戏靠组件的 `size` 与槽模板的 `size` **同名匹配**。所以\"一个组件能装到某舰\"= 组件的 `size` 对上某舰段提供的同类槽（与 `ship_size` 无直接字段绑定）。\n\n判断组件是否出现，看 `potential`（This = 舰船设计，From = 国家）；`prerequisites` 只决定科技解锁，`upgrades_to` 决定升级链。\n\n**重要**：`ship_ability` 是本版本**已不存在**的字段，见下节。\n\n## 文件位置与命名\n\n| 路径 | 内容 | 版本实况 |\n| --- | --- | --- |\n| `common/component_templates/000_documentation.txt` | 官方字段手册（227 行） | 权威来源，但含**过时字段**（如 `class_restriction`、`ship_limit`、`blocked_by` 标注 DEPRECATED） |\n| `common/component_templates/*.txt` | 组件定义 | 55 个 `.txt`，另有 4 个数据文件：`weapon_components.csv`、`mutation_weapon_components.csv` 与两个同名 `.ods` |\n| `common/component_sets/` | `component_set` 指向这里 | 组件的分组/升级链 |\n| `common/component_slot_templates/` | 槽模板（3 个文件） | `size` 在此定义，与组件同名匹配 |\n| `common/section_templates/` | 舰段，提供 `*_utility_slots` | 决定一艘船有哪些槽 |\n| `weapon_components.csv` | **武器数值的真正来源** | 见\"常见错误\" |\n\n## 语法与字段\n\n字段出现次数为全目录 `*.txt` 行首赋值统计（4.4.6）。\n\n| 字段 | 次数 | 说明与证据 |\n| --- | --- | --- |\n| `key` | 1408 | 组件键，实体/本地化锚点。`00_utilities_aux.txt:5` `key = \"REACTOR_BOOSTER_1\"` |\n| `size` | 1472 | 槽匹配依据。`00_utilities_aux.txt:6` `size = aux` |\n| `icon` / `icon_frame` | 1408 / 1387 | GFX 名与帧 |\n| `power` | 623 | 正数供电、负数耗电。`000_documentation.txt:10` |\n| `resources` | 1194 | 含 `cost` / `upkeep`。`cost` 1476、`upkeep` 605 |\n| `prerequisites` | 1173 | 科技前置。`00_utilities_aux.txt:16` `prerequisites = { \"tech_reactor_boosters_1\" }` |\n| `component_set` | 1331 | `00_utilities_aux.txt:17` |\n| `upgrades_to` | 519 | `00_utilities_aux.txt:18` |\n| `potential` | 869 | 是否出现在设计器。`000_documentation.txt:54-66` |\n| `modifier` / `ship_modifier` | 1274 / 337 | 前者显示在设计器，后者不显示（`000_documentation.txt:12-17`） |\n| `triggered_ship_modifier` | 22 | `000_documentation.txt:18` |\n| `triggered_ship_design_modifier` | 20 | `000_documentation.txt:24` |\n| `ai_weight` / `ai_tags` | 1026 / 711 | AI 选件 |\n| `hidden` | 94 | `00_biogenesis_crisis_components.txt:10` `hidden = yes` |\n| `entity` | 133 | 组件实体 |\n| `custom_tooltip` | 70 | 70 次 |\n| `scripted_action` | **6** | **本版本赋予舰船特殊功能的字段** |\n| `weapon_type` | 61 | **仅出现在 strike craft**，取值 `point_defence`(44) / `instant`(17) |\n| `damage` | 61 | **仅 strike craft**；武器本体数值在 CSV |\n| `type` | 416+ | 武器类型：`instant`(416)、`missile`(70)、`point_defence`(55)、`planet_killer`(11)、`engulf`(3) |\n| `armor_value` / `sensor_range` | 1 / 15 | 文档 `000_documentation.txt:194,202` |\n| `slot` `utility_slot` `triggered_desc` `fits_on_slot` `strike_craft` | **0** | **本版本无此字段** |\n\n`size` 真实取值清单（次数）：`small` 600、`large` 296、`medium` 295、`extra_large` 137、`aux` 45、`point_defence` 23、`torpedo` 18、`planet_killer` 11、`titanic` 11、`engulf` 3，另有别名 `s` 11、`m` 11、`l` 11。文档 `000_documentation.txt:7` 列出的合法集合为 `point_defence/small/medium/large/extra_large/titanic/torpedo/planet_killer/aux`。\n\n### ship_ability：本版本已不存在\n\n**关键结论**：`ship_ability` 字段在 Pegasus 4.4.6 **完全不存在**。取证：`common/component_templates/*.txt` grep `ship_ability` 命中 **0** 次；`common/`、`events/`、`localisation/`、`interface/` 递归均 0 次；`Test-Path \"common\\ship_abilities\"` 返回 `False`，全安装无 `ship_abilit*` 目录。\n\n**替代字段是 `scripted_action`**，其值指向 `common/scripted_actions/*.txt` 里的顶层键（**不是硬编码**，`99_README_SCRIPTED_ACTIONS.txt:1` 明确写 \"Example of a scripted action, to be enabled by a ship component via the scripted_action field\"）。`common/scripted_actions/` 共 6 个文件、669 个顶层块。\n\nvanilla 全部 6 处 `scripted_action` 清单：\n\n| 文件:行 | 组件 key | size | 指向的 scripted_action |\n| --- | --- | --- | --- |\n| `00_scripted_action_components.txt:75` | `SHIP_PLANETFALL` | large | `beholder_planetfall` |\n| `00_scripted_action_components.txt:93` | `SHIP_AZARYN_TERRAFORM` | large | `azaryn_terraform` |\n| `00_scripted_action_components.txt:111` | `SHIP_COSMOGENESIS_EXODUS` | large | `horizon_needle_action` |\n| `00_scripted_action_components.txt:133` | `SHIP_PALADIN_CREST` | large | `paladin_super_shield` `paladin_thunderclap` `paladin_recall` `paladin_air_superiority` `paladin_plan_b` `paladin_sudden_strike` `paladin_field_repairs` `paladin_taunt` `paladin_hold_the_line` `paladin_for_the_order` `paladin_teamwork` `paladin_leadership` `paladin_field_testing`（13 个） |\n| `00_biogenesis_crisis_components.txt:294` | `SHIP_BEHEMOTH_RAGE` | large | `behemoth_rage` |\n| `00_utilities_roles.txt:1996` | `COMBAT_COMPUTER_ARKSHIP` | — | `arkship_build_megastructure` 等 21 个（`:1996-2017`） |\n\n指向的 `scripted_action` 均已核实为 `common/scripted_actions/` 的顶层键：`behemoth_rage`→`01_biogenesis_crisis.txt:1`；`beholder_planetfall`/`azaryn_terraform`/`horizon_needle_action`→`00_paragons.txt:1/21/69`；`paladin_super_shield`/`paladin_taunt`→`02_paladins.txt:2/279`。\n\n**注意**：这 6 个组件全是 `utility_component_template`，`size` 多为 `large`；它们一律 `power = 0` 且**不写 `potential`/`prerequisites`**，靠载体舰种（主宰/方舟舰/圣骑士）自身的独占性限制。主动/被动的区别不是字段，而是看该组件挂了 `scripted_action`（主动按钮）还是 `modifier`/`friendly_aura`/`hostile_aura`（被动生效）。\n\n### 辅助槽位（aux）组件\n\n`aux` 就是一个普通 `size` 值。舰段用 `aux_utility_slots = 1`（`section_templates/corvette.txt:75`）声明，组件 `size = aux` 即可装。全目录 45 个 `size = aux` 组件，集中在 `00_utilities_aux.txt`(17)、`00_utilities_aux_first_contact.txt`(19)。\n\n最小可加载示例（辅助槽位）：\n\n## 常见错误\n\n- **照 Wiki 写 `ship_ability = { ... }`**：本版本无此字段，会被当未知键忽略，按钮不出现。必须用 `scripted_action = { <key> }`，且 `<key>` 得先在 `common/scripted_actions/` 定义。\n- **照 Wiki 写 `slot = ` 或 `utility_slot = `**：字段不存在。装载关系由 `size` 匹配决定。\n- **把 `damage` / `min_range` / `accuracy` 写进 `weapon_component_template`**：4.4.6 武器数值在 `weapon_components.csv`（表头注 `# This file can be reloaded with the reload stats console command`，`SMALL_RED_LASER` 行第 2 列为伤害 10.00）。模板里只留 `tags`/`prerequisites`/`on_hit`/`resources`/`potential` 等（`000_documentation.txt:137-139`）。\n- **以为组件要写 `fits_on_slot`**：那是 `ship_section_template` 的字段（`corvette.txt:7`），不是组件的。\n- 忘写 `resources { category = ... }` 导致成本不生效。\n\n## 待确认\n\n- `triggered_desc`：全目录 0 次，未在本版本组件中确认用途；若需条件化描述，倾向用 `custom_tooltip`（70 次）或 `triggered_ship_design_modifier`。\n- 文档 `000_documentation.txt:73` 的 `slot_restriction`、`:68` `class_restriction`、`:72` `size_restriction` 均标注 DEPRECATED 且在本目录 **0 次**使用；推测已被 `potential` 取代，但未找到替代写法的官方说明。\n- `possible` 块（文档 `:67`）在本目录仅 3 次命中且非行首赋值形式，未确认真实用法。\n- `scripted_action` 全部 6 例都无 `potential`；它能否与 `potential` 组合使用未验证。\n- `ship_ability` 具体在哪个版本被移除、是否曾有 `common/ship_abilities/`，本次未做跨版本比对。
+"""
+
+syntax_blocks = [
+    "# common/component_templates/99_my_aux.txt\nutility_component_template = {\n\tkey = \"MY_AUX_SENSOR_ARRAY\"\n\tsize = aux\n\ticon = \"GFX_ship_part_reactor_booster_1\"\n\ticon_frame = 1\n\n\tresources = {\n\t\tcategory = ship_components\n\t\tcost = { alloys = 5 }\n\t\tupkeep = { energy = 0.25 }\n\t}\n\n\tmodifier = {\n\t\tship_sensor_range_add = 1\n\t}\n\n\tai_weight = { weight = 1 }\n}"
+]
+
+relationships = [
+    "ship-sizes",
+    "technology",
+    "resources-economy"
+]
+
+validation = [
+    "能否装到船：组件 size 必须等于某舰段提供的槽尺寸。护卫舰 section_templates/corvette.txt:37 aux_utility_slots = 2 → size = aux 可装；武器槽靠 component_slot = { template = \"small_turret\" }（同文件 :26），而 component_slot_templates/00_component_slots_turrets.txt:16-17 的 small_turret 正是 size = small。",
+    "能否在设计器出现：检查 potential（This = ship design，From = country）。缺省则所有舰可见。",
+    "验证组件出现在设计师：进游戏舰船设计器，护卫舰的辅助槽应能选到 MY_AUX_SENSOR_ARRAY；控制台 reload component_templates 或重开游戏可刷新；error.log 不应出现 \"unknown key\" 或图标缺失。",
+    "图标必须用已存在的 GFX 名，写错只在 error.log 里静默报错。",
+    "resources.category 用 ship_components，与舰段用 ship_sections、舰种用 ships 区分。"
+]
+
+source_refs = [
+    "https://stellaris.paradoxwikis.com/Component_modding",
+    "官方字段手册：<Stellaris>\\common\\component_templates\\000_documentation.txt",
+    "scripted_action 手册：<Stellaris>\\common\\scripted_actions\\99_README_SCRIPTED_ACTIONS.txt",
+    "武器数值表：weapon_components.csv / mutation_weapon_components.csv",
+    "组件字段上游说明：Component modding（注意其 ship_ability 等字段在本版本已失效）",
+    "相关条目：[ship-sizes](ship-sizes.md)、[ship-abilities-and-gui](ship-abilities-and-gui.md)"
+]
+
+title_zh = "舰船组件"
+
+verified_version = "Pegasus 4.4.6 实机文件核对"
+
+aliases = []

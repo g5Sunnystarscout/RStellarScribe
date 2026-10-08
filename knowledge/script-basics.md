@@ -1,0 +1,101 @@
+---
+id: script-basics
+category: script
+title: Paradox Script Basics
+title_zh: Paradox 脚本基础
+file_types: [common/**, events/**]
+tags: [syntax, comments, quotes, boolean, operators, encoding]
+related: [scopes, triggers, effects, variables]
+sources: [https://stellaris.paradoxwikis.com/Modding, https://stellaris.paradoxwikis.com/Conditions, https://stellaris.paradoxwikis.com/Dynamic_modding, https://stellaris.paradoxwikis.com/Localisation_modding]
+verified_version: "3.14 / 4.0"
+---
+## 概要
+Stellaris 使用 Clausewitz 引擎脚本，本质是声明式数据格式，只有两种基本结构：`键 = 标量` 与 `键 = { 子块 }`。没有语句结束符，行尾不写分号，赋值、布尔判断、作用域切换**统一使用单个 `=`**，这是最容易读错的地方。脚本本身不会“按行执行”，块内书写顺序不代表求值顺序。
+
+## 文件位置与命名
+- 脚本数据是纯文本 `.txt`，放在 mod 根目录下与游戏同构的目录树中。最常用 `common/`（含 `common/scripted_effects/`、`common/scripted_triggers/`、`common/scripted_variables/`、`common/script_values/`、`common/inline_scripts/`）与 `events/`。
+- 目录内所有 `.txt` 都会被加载，文件名任意，但要用自己 mod 的唯一前缀避免冲突；能新增文件就不要覆盖 vanilla 文件。
+- 覆盖机制不同：`events/` 是 **FIOS（First In, Only Served）**，其余多数 `common/` 目录是 **LIOS（Last In, Only Served）**。要覆盖 vanilla 事件，文件名在 UTF-8 排序上必须晚于 vanilla，常用 `!!` 前缀。
+- 编码要求不同，务必分清：脚本 `.txt` 与 `.mod`/`descriptor.mod` 用 **UTF-8（无 BOM）**；`localisation/<lang>/*.yml` 与 name list 文件必须 **UTF-8 with BOM**（纯 UTF-8 会解析失败）。目录名是 `localisation`（英式拼写，带 s），语言子目录如 `localisation/english/`、`localisation/simp_chinese/`。
+- 已在 4.1.7 本机安装中实测确认该编码规则：
+  - 脚本：`common/scripted_effects/00_scripted_effects.txt` 首 3 字节为 `35,9,69`（`#`、tab、`E`），**无 BOM**。
+  - localisation：`localisation/english/achievements_l_english.yml` 首 4 字节为 `239,187,191,108`（EF BB BF = BOM），首行是 `l_english:`。
+  - name list：`common/name_lists/28_biogenesis.txt` 首 3 字节为 `239,187,191`，**带 BOM** —— 即“name list 属 BOM 阵营”，与普通脚本 `.txt` 相反。
+
+## 语法与字段
+- `键 = 值`：`set_country_flag = my_flag`；`键 = { … }`：`add_modifier = { modifier = x days = 30 }`。
+- `#` 到行尾是注释。
+- 布尔写作 `yes` / `no`；数值可为整数或小数（浮点显示精度约 5 位）。
+- 字符串：单个 token 可省略引号；含空格或特殊字符必须用双引号，如 `name = "My Mod Empire"`。
+- 逻辑块：`AND`（块内默认，无需显式书写）、`OR`、`NOT`（只接受一条）、`NOR`、`NAND`、`if / else_if / else`（条件写在 `limit = { }` 内）。
+- 列表即集合语义：**不同键之间是 AND**；**同一个键重复出现按列表处理**，`has_ethic = ethic_a` 与 `has_ethic = ethic_b` 并列等价于 OR。
+- `@`：脚本常量/脚本变量。文件内 `@name = 值` 仅本文件可见；跨文件共享必须写进 `common/scripted_variables/*.txt`。
+- `$`：元脚本参数替换，用于 `scripted_effects` / `scripted_triggers` / `inline_scripts` 传参；在 localisation 中 `$...$` 是引用其它 loc 键。
+- 缩进与 tab 不影响解析（vanilla 用 1 个 tab），只影响可读性与括号配对的可视性。
+
+```pdx
+# common/scripted_effects/my_mod_reward_effects.txt
+# 文件级 @ 常量：只有本文件能引用；跨文件请放到 common/scripted_variables/
+@my_mod_base_gift = 150
+
+my_mod_grant_reward = {
+	set_country_flag = my_mod_reward_granted   # 标量赋值
+
+	if = {
+		limit = {
+			has_technology = tech_starbase_2
+			NOT = { has_country_flag = my_mod_late_stage }
+		}
+		add_resource = { energy = @my_mod_base_gift influence = 25 }
+	}
+	else_if = {
+		limit = { is_ai = yes }
+		add_resource = { energy = 60 }
+	}
+	else = {
+		add_resource = { energy = 90 minerals = 45 }
+	}
+
+	# AND 是块内默认；OR / NOR / NAND 需要显式书写
+	OR = {
+		has_ethic = ethic_materialist
+		has_ethic = ethic_fanatic_materialist
+	}
+
+	custom_tooltip = "my_mod_reward_tooltip"
+
+	every_owned_planet = {
+		limit = { is_planet_class = pc_continental }
+		add_modifier = { modifier = my_mod_colony_boon days = 720 }
+	}
+}
+```
+
+## 校验要点
+- **以 vanilla 文件为唯一权威**：本机 4.1.7 安装在 `D:\SteamLibrary\steamapps\common\Stellaris`。任何字段/指令先统计 `common/` + `events/` 中的出现次数（`Select-String -SimpleMatch`），0 次就不要写。
+- 括号必须严格配对：多一个 `{` 会导致后续事件被“掏空”，出现空事件框。
+- 编码自检：`.txt` 必须是 UTF-8 无 BOM；`.yml` 与 name list 必须是 UTF-8 with BOM。用 VSCode 右下角编码指示或 Notepad++ 的“编码”菜单确认，也可直接看首 3 字节是否为 `EF BB BF`。
+- 运行后读 `logs/error.log`；自定义调试可用 `log = <字符串>`（写入 `logs/game.log`，4.1.7 全库 157 次，效果块中亦可用）。
+- 控制台执行 `trigger_docs` 会重新导出 `logs/script_documentation/{scopes,triggers,effects,localizations}.log`。
+- 用 CWTools（VSCode 扩展）做语法校验与自动补全。
+
+## 常见错误
+1. 用 `==` 或 `!=` 做比较；Clausewitz 只有 `=`。
+2. 行尾写分号。
+3. 用逗号分隔列表元素；逗号不是分隔符，应换行或空格分隔。
+4. 含空格的字符串不加引号。
+5. 以为触发器块按书写顺序短路求值；求值顺序由引擎决定，不要依赖副作用。
+6. 把脚本 `.txt` 存成 UTF-8 with BOM，或把 `.yml` / name list 存成纯 UTF-8（两者阵营相反）。
+7. 直接改写 Steam 目录下的 vanilla 文件。
+
+## 参考
+- vanilla（本机 4.1.7）：`common/scripted_effects/00_scripted_effects.txt`（脚本 `.txt` 无 BOM；同文件 16 行起是调试效果 `print_scope_effect`）、`localisation/english/achievements_l_english.yml`（`.yml` 带 BOM，首行 `l_english:`）、`common/name_lists/28_biogenesis.txt`（name list 带 BOM）
+- [Modding](https://stellaris.paradoxwikis.com/Modding)（Guidelines、目录结构、覆盖机制）
+- [Conditions](https://stellaris.paradoxwikis.com/Conditions)（AND/OR/NOT/NOR/NAND/calc_true_if）
+- [Dynamic_modding](https://stellaris.paradoxwikis.com/Dynamic_modding)（`@` 脚本变量、`$` 参数、scripted effects）
+- [Localisation_modding](https://stellaris.paradoxwikis.com/Localisation_modding)（UTF-8-BOM 硬性要求）
+
+## 待确认
+- 编码阵营已由 vanilla 实测确认（脚本 UTF-8 无 BOM / localisation 与 name list UTF-8 with BOM），但**给脚本 `.txt` 加上 BOM 后的具体失败形式**（社区经验是首个键名被不可见字符污染）没有官方文档描述，也没有在 vanilla 中找到反例。建议把“BOM 会怎样报错”当作经验而非规范。
+- “同一键重复 = OR”的列表语义是 Clausewitz 通用行为，但 wiki 的 Conditions 页反而把 AND 描述为“trigger 或新 scope 内的默认”。不同触发器对重复键的处理是否完全一致，建议用 `error.log` 与实测逐条确认。
+

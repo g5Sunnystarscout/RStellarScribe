@@ -1,0 +1,1128 @@
+---
+id: system-initializers
+category: structure
+title: Solar System Initializers and Galaxy Generation Data
+title_zh: 星系初始生成与地图数据
+file_types: [common/solar_system_initializers/*.txt, common/random_names/*.txt, common/name_lists/*.txt, common/planet_classes/*.txt, common/deposits/*.txt, common/star_classes/*.txt, common/scripted_effects/*.txt, events/*.txt, map/**]
+tags: [solar_system_initializers, random_names, name_lists, planet_classes, deposits, star_classes, spawn_system, map]
+related: [planet-generation, localisation-basics]
+sources: [https://stellaris.paradoxwikis.com/System_modding, https://stellaris.paradoxwikis.com/Planet_Generation_modding, https://stellaris.paradoxwikis.com/Map_modding]
+verified_version: "Pegasus 4.4.6"
+---
+
+## 概要
+
+星系生成由 `common/solar_system_initializers/` 驱动：每个 initializer 描述一个星系的恒星、行星、卫星、轨道、名称、flag 与 `init_effect`，并可通过 `neighbor_system` 组成"初始化树"，由父星系决定邻居用哪个 initializer。
+
+**目录名核实结果（Pegasus 4.4.6 实测）**：
+- 沉积物目录是 **`common/deposits/`（复数）**；`common/deposit/` **不存在**。
+- **`common/buildable_districts/` 不存在**。
+- 没有 `common/strike_craft/`、`common/event_modifiers/`、`common/weapon_tags/`。
+
+权威文档是游戏自带的 `common/solar_system_initializers/example.txt`（172 行，逐字段注释；本文行号按 Pegasus 4.4.6 计）与 `common/name_lists/README_NAME_LISTS.txt`。Wiki 的 System/Map modding 页停留在更早版本，`map/` 部分尤其陈旧。
+
+## 文件位置与命名
+
+| 路径 | 作用 |
+| --- | --- |
+| `common/solar_system_initializers/*.txt` | 星系初始生成器（树结构） |
+| `common/star_classes/*.txt` | 恒星类型（决定 `class = random` 时能出什么行星） |
+| `common/planet_classes/*.txt` | 行星类型（地形、图标、轨道范围、区划集） |
+| `common/deposits/*.txt` | 行星特征（planetary deposit）与轨道资源点（orbital deposit） |
+| `common/deposit_categories/*.txt` | 沉积物分类 |
+| `common/random_names/*.txt` | 名称片段（`empire_name_parts_list`、舰队/战争/派系名等） |
+| `common/name_lists/*.txt` | 命名表（物种、行星、舰船、角色名） |
+| `map/galaxy/galaxy_shapes.txt` | 银河形状 |
+| `map/setup_scenarios/*.txt` | 星系尺寸预设（tiny/small/medium/large/huge）与固定银河示例 |
+
+## 语法与字段
+
+### solar_system_initializers
+
+```pdx
+# common/solar_system_initializers/99_my_initializers.txt
+my_ruined_ring_system = {
+	name = "Example System"            # 本地化键；留空则随机
+	class = "rl_standard_stars"        # 恒星类：具体类（sc_binary_10）或随机列表（rl_*）
+
+	asteroid_belt = {
+		type = rocky_asteroid_belt
+		radius = 60                    # 距星系中心
+	}
+
+	flags = { example_system }         # has_star_flag 可引用
+
+	usage = misc_system_init           # empire_init / fallen_empire_init / misc_system_init /
+	                                   # custom_empire / origin；可多个，也可完全不写
+	usage_odds = {                     # this = galactic_object（恒星）
+		base = 20
+		modifier = { factor = 0 has_star_flag = empire_cluster }
+	}
+	max_instances = 10                 # 默认无限
+	spawn_chance = 60                  # 1-100，默认 100
+	# scaled_spawn_chance = 8          # 与 spawn_chance 互斥
+	primitive_system = no
+	prevent_anomalies = no
+
+	init_effect = {                    # this = galactic_object, root = 树中首个星系, prev = 树中上一星系
+		set_name = "Name set from an effect"
+	}
+
+	# —— 恒星本身也是先当行星生成再转成恒星的 ——
+	planet = {
+		class = star
+		orbit_distance = 0
+	}
+
+	planet = {
+		count = { min = 1 max = 3 }
+		name = "Example Planet"
+		class = random                 # random / random_colonizable / random_non_colonizable /
+		                               # random_asteroid / ideal_planet_class / random_non_ideal /
+		                               # none / pc_xxx（具体类）
+		orbit_distance = { min = 40 max = 50 }   # 相对前一个天体的增量
+		orbit_angle = 1                # 度
+		size = 30
+		has_ring = no
+		has_independent_orbital_line = yes
+		modifier = "pm_dangerous_wildlife"       # 行星特征键
+		anomaly = "IRASSIA"
+		home_planet = yes
+		flags = { example_planet }
+		moon = {
+			count = { min = 1 max = 3 }
+			class = random
+			orbit_distance = 2.5
+			size = 1
+		}
+		orbital_line = { orbit_distance_from_parent = 20 }
+		init_effect = {                # this = planet, prev = solar_system, root = 树中首个星系
+			set_name = "init_effect example name"
+		}
+	}
+
+	change_orbit = 30                  # 等价于 planet = { class = none orbit_distance = 30 }
+	orbital_line = { orbit_distance_from_parent = 20 }
+
+	neighbor_system = {
+		distance = { min = 10 max = 100 }
+		hyperlane_distance = { min = 1 max = 20 }
+		hyperlane_jumps = { min = 1 max = 20 }
+		min_orientation_angle = 0
+		max_orientation_angle = 120
+		spawn_chance = 90
+		trigger = { }                  # this = 父星系, root/prev 见文档
+		initializer = "my_neighbor_system"
+	}
+	mandatory_neighbors = no
+}
+```
+
+**所有数值都支持区间写法** `x = { min = 5 max = 15 }`（触发器与效果内部除外）。`spawn_chance = 60` 表示 60% 概率被考虑，`scaled_spawn_chance = 8` 表示按 `(8 × 星系总数) / 100` 计算，二者互斥。
+
+调试命令：控制台 `Draw.Clusters`（显示簇）、`Draw.SystemInit`（打印每个星系使用的 initializer 及触发关系）。
+
+**关于 `min_distance` / `max_distance`（重要纠正）**：这两个字段**不是 initializer 的字段**。Pegasus 4.4.6 中在 `common/solar_system_initializers/*.txt` 里搜 `spawn_by` 命中 **0 次**，`min_distance` 的命中全部出现在 **`spawn_system` 效果**内部，例如 `paragon_initializers.txt` 的 `init_effect` 中：
+
+```pdx
+init_effect = {
+	random_system = {
+		spawn_system = {
+			min_distance = 10
+			max_distance = 30
+			max_jumps = 0
+			initializer = "legendary_leader_1st_site"
+		}
+	}
+}
+```
+
+其签名见 `logs/script_documentation/effects.log:675-677`：`spawn_system = { min_jumps max_jumps min_distance max_distance initializer hyperlane is_discovered }`，Supported Scopes 为 `megastructure planet ship fleet galactic_object starbase no_scope colony`（**没有 `country`**）。
+
+**注意**上面 `paragon_initializers.txt` 那段用的是裸 `min_distance = 10`，而 The Chosen、L-Cluster 等处的正式写法是**把比较运算符拼进键名**的 `min_distance >= 10` / `max_distance <= 30`。两种写法在原版里都存在，含义不同，详见下文《`spawn_system` 效果：语法、作用域与批量处理》。
+
+### deposits
+
+```pdx
+# common/deposits/99_my_deposits.txt
+# —— 轨道资源点（需采矿/研究站） ——
+d_my_crystal_field = {
+	icon = d_mining_station
+	resources = {
+		category = orbital_mining_deposits
+		produces = { minerals = 2 }
+	}
+	station = shipclass_mining_station
+	is_for_colonizable = no
+	potential = { can_have_mineral_deposits = yes }
+	habitat_modifier = { district_hab_mining_max_add = 1 }
+	drop_weight = { weight = 0 }
+}
+
+# —— 行星特征（殖民地地块特征） ——
+d_my_hot_springs = {
+	is_for_colonizable = yes
+	use_for_min_max_adjustments = yes
+	category = deposit_cat_energy
+	planet_modifier = { district_generator_max_add = 1 }
+	potential = { is_dry = yes }
+	drop_weight = {
+		weight = @high
+		modifier = { factor = @planet_type_bonus is_dry = yes }
+	}
+	use_weights_for_terraforming_swap_types = yes
+	should_swap_deposit_on_terraforming = yes
+	terraforming_swap_types = { d_hot_springs d_buzzing_plains }
+}
+```
+
+文件头列出可用字段：`resources`（含 `produces`）、`potential`（planet scope）、`blocked_modifier`（行星上被阻挡时生效）、`constant_modifier`（始终生效）、`station`（在轨采集站类型）。`drop_weight` 是权重控制的常规手段。**注意 `constant_modifier` 在 Pegasus 4.4.6 的 deposits 中实测 0 次命中（仅存在于文件头注释），是否仍被解析未确认。**
+
+### planet_classes
+
+```pdx
+# common/planet_classes/99_my_planets.txt
+pc_my_crystal_world = {
+	entity = "gaia_planet"
+	entity_scale = @planet_standard_scale
+	icon = GFX_planet_type_gaia
+	icon_large = GFX_planet_type_gaia_big
+
+	atmosphere_color     = hsv { 0.58 0.3 0.7 }
+	atmosphere_intensity = 1.0
+	atmosphere_width     = 0.5
+	city_color_lut = "gfx/portraits/misc/colorcorrection_neutral.dds"
+
+	modifier = {
+		planet_jobs_produces_mult = 0.10
+		pop_happiness = 0.10
+	}
+
+	min_distance_from_sun = 60
+	max_distance_from_sun = 95
+	spawn_odds = 0.05
+
+	extra_orbit_size = 0
+	extra_planet_count = 0
+	chance_of_ring = 0.2
+
+	planet_size = { min = @habitable_planet_min_size max = @habitable_planet_max_size }
+	moon_size = { min = @habitable_moon_min_size max = @habitable_moon_max_size }
+
+	colonizable = yes
+	colonizable_by_event = no
+	district_set = standard          # 关键：区划集，用 uses_district_set 判定
+	ideal = yes
+	starting_planet = no
+	can_be_moon = no
+	can_be_invaded = yes
+	can_have_no_pop_colony = yes
+	show_city = yes
+	show_health_bar_in_planet_view = yes
+	uses_alternative_skies_for_moons = yes
+	uses_alternative_skies_if_has_orbital_ring = yes
+	carry_cap_per_free_district = @carry_cap_high
+	ringworld = no
+	auto_trait_prio = { trait_auto_pc_gaia_preference }
+}
+```
+
+**注意 4.x 的关键点**：行星类型决定可建区划的方式是 `district_set = <名称>` 配合区划与触发的 `uses_district_set = <名称>`，**不是** `is_planet_class`。这是 4.0 重做后写自定义行星/区划最容易漏的一条。
+
+### name_lists 与 random_names
+
+```pdx
+# common/name_lists/99_my_names.txt
+MYNAMES = {
+	selectable = yes
+	randomized = yes
+	alias = "My People"
+	trigger = { is_my_country = yes }
+	category = "Humanoid"
+	customize_random_override = HUM1
+	should_name_home_system_planets = yes
+
+	ship_names = {
+		generic = { MY_SHIP_1 MY_SHIP_2 }
+		corvette = { MY_CORVETTE_1 }
+	}
+	ship_class_names = { generic = { MY_CLASS_1 } }
+	fleet_names = {
+		random_names = { MY_FLEET_1 }
+		sequential_name = MY_FLEET_SEQ
+	}
+	army_names = {
+		generic = { random_names = { MY_ARMY_1 } sequential_name = MY_ARMY_SEQ }
+		defense_army = { generic = { MY_DEF_1 } }
+	}
+	planet_names = {
+		generic = { names = { MY_PLANET_1 MY_PLANET_2 } }
+		pc_desert = { names = { MY_DESERT_1 } }
+	}
+	character_names = {
+		default = {
+			full_names = { MY_FULL_1 }
+			full_names_male = { }
+			full_names_female = { }
+			first_names = { MY_FIRST_1 }
+			first_names_male = { }
+			first_names_female = { }
+			second_names = { MY_SECOND_1 }
+			regnal_full_names = { }
+			use_full_regnal_name = no
+			weight = 20
+		}
+	}
+}
+```
+
+`common/random_names/` 放的是**名称片段生成表**，与 name_lists 不同：
+
+```pdx
+# common/random_names/99_my_random_names.txt
+empire_name_parts_list = {
+	key = "imperial_gen"
+	parts = {
+		Empire = 4
+		Imperium = 2
+		Hegemony = 2
+	}
+}
+```
+
+`parts` 里的数字是权重。Pegasus 4.4.6 该目录下有 `00_empire_names.txt`、`00_federation_names.txt`、`00_pop_faction_names.txt`、`00_pre_communications_names.txt`、`00_shroud_pre_communications_names.txt`、`00_war_names.txt`。
+
+### map/ 文件夹的作用与限制
+
+Pegasus 4.4.6 的 `map/` 只有两个子目录：
+
+- `map/galaxy/galaxy_shapes.txt` —— 银河形状定义。
+- `map/setup_scenarios/` —— `tiny.txt` / `small.txt` / `medium.txt` / `large.txt` / `huge.txt`（各尺寸预设的星系数量、超空间连通度等）与 `static_galaxy_example.txt`（固定银河写法示例）。
+
+**限制**：
+1. `map/setup_scenarios/` 里同名文件会整体覆盖 vanilla 预设，改动会影响所有玩法与 AI 平衡，做小 mod 时不要动。
+2. 具体的星系内容**不写在 `map/`**，而是由 `common/solar_system_initializers/` 在生成时填充——`map/` 只决定"有多少星系、怎么连"。
+3. 旧的 `map/galaxy.png` 之类的地图图片在现代版本已不参与生成，Wiki 的 Map modding 页仍描述这些旧机制，不要照抄。
+4. 想放"固定银河"用 `static_galaxy_example.txt` 的写法（同目录示例），而不是改 `galaxy_shapes.txt`。
+
+## `spawn_system` 效果：语法、作用域与批量处理
+
+本节全部结论在 **Pegasus 4.4.6** 中确认：文件引用行号与字符串都读自 Pegasus 4.4.6 的安装目录（`launcher-settings.json` = `Pegasus v4.4.6 (fdde)`），行为另有实机运行验证。
+
+### 语法：比较运算符写在键名里
+
+`spawn_system` 的距离不是"赋值"，而是**把比较运算符拼进键名**——和 `*_compare` 触发器是同一套写法：
+
+```pdx
+# 正确：运算符是键名的一部分
+spawn_system = {
+	min_distance >= 30
+	max_distance <= 75
+	direction = rimwards
+	initializer = the_chosen_home_initializer
+	hyperlane = no
+}
+
+# 错误：会被读成等号，不是区间下限
+spawn_system = {
+	min_distance = 30
+	max_distance = 75
+	initializer = the_chosen_home_initializer
+}
+```
+
+原版实例（The Chosen 的起始星系，`events/first_contact_dlc_events.txt:6499` 的 `system_event fircon.3500`）就是 Pegasus 4.4.6 里可直接对照的写法：
+
+```pdx
+# events/first_contact_dlc_events.txt:6493-6507
+system_event = {
+	id = fircon.3500
+	is_triggered_only = yes
+	hide_window = yes
+
+	immediate = {
+		spawn_system = {
+			min_distance >= 30
+			max_distance <= 75
+			direction = rimwards
+			initializer = the_chosen_home_initializer
+			hyperlane = no
+		}
+	}
+}
+```
+
+**距离是"银河半径的百分比，从银河中心量起"**，不是距某个星系的绝对格数——这正是"把一簇星系钉在银心附近"的做法。`min_orientation_angle` / `max_orientation_angle` 是同一坐标系下的角度（`events/distant_stars_events_3.txt:1624-1625` 用 `44`/`46` 把 L-Cluster 入口钉在固定方位）。
+
+**关于数值上限的实测**：`effects.log:676` 的签名写的是 `<int 0-100>`，但原版自用值并不局限于此——111 个 `spawn_system` 块中，`min_distance`/`max_distance` 出现 200 次，取值范围 `0 … 560`，其中 >100 的只有 2 处，都在 L-Cluster：`events/distant_stars_events_3.txt:1622-1623` 的 `min_distance >= 550` / `max_distance <= 560`。所以把 0-100 当硬上限去校验别人的脚本是错的；写 `>100` 的值引擎会接受（在 Pegasus 4.4.6 中复现）。另外 `direction` 的合法值只有 `corewards` / `rimwards`，写错会得到 `spawn_system: unexpected direction %s (expected 'corewards' or 'rimwards') at %s`（该格式串在 `stellaris.exe` 内）。
+
+### `hyperlane = no` 才是"孤立星系"
+
+`hyperlane = no` 不生成与周围星网相连的超空间航道，这是 The Chosen 母星系和 L-Cluster 被封死的手段：
+
+```pdx
+# events/distant_stars_events_3.txt:1605-1641（# spawn l-cluster / distar.11000）
+immediate = {
+	set_spawn_system_batch = begin
+	no_scope = {
+		spawn_system = {
+			min_distance >= 550
+			max_distance <= 560
+			min_orientation_angle = 44
+			max_orientation_angle = 46
+			initializer = distantstars_init_01
+			hyperlane = no
+			effect = { save_global_event_target_as = lcluster1 }
+		}
+		...
+	}
+}
+```
+
+`hyperlane = yes`（或不写，走默认）会把新星系接进周边网络；**越靠近银心越容易失败**，此时引擎会打印：
+
+```
+spawn_system: found no possible system for the new system to connect with around <位置>
+Specify 'hyperlane = no' if no hyperlane connection is needed.
+```
+
+这两行是 `stellaris.exe` 里的原始字符串（同段还有 `spawn_system: Failed to find a position within defined parameters at %s, sending it to the galactic core instead`——找不到位置时引擎会把星系丢到银心兜底，而不是静默丢弃）。111 个原版 `spawn_system` 块里 `hyperlane = no` 53 次、`hyperlane = yes` 16 次、不写 43 次，可见"不写"也是常见做法。
+
+### `no_scope`：事件里没有合适作用域时的包装
+
+`effects.log:676-677` 给出 `spawn_system` 的 **Supported Scopes**：
+
+```
+megastructure planet ship fleet galactic_object starbase no_scope colony
+```
+
+**没有 `country`**。所以一个国家事件（`country_event`，`this`/`root` 都是 country）不能直接写 `spawn_system`，必须套 `no_scope = { ... }`——这也正是原版的做法：
+
+```pdx
+# events/distant_stars_events_2.txt:15-54（distar.290）
+event = {
+	id = distar.290
+	immediate = {
+		set_spawn_system_batch = begin
+		no_scope = {
+			# makes system positions originate from galactic core   ← 原版注释
+			random_system = {
+				limit = { NOR = { is_fe_cluster = yes has_star_flag = empire_cluster } }
+				spawn_system = {
+					min_distance >= 20
+					max_distance <= 50
+					initializer = "distar_sealed_1_1"
+				}
+			}
+			event_target:sealed_entry_system = {
+				spawn_system = {
+					min_distance >= 20
+					max_distance <= 30
+					max_jumps = 30
+					initializer = "distar_sealed_1_2"
+				}
+			}
+		}
+	}
+}
+```
+
+原版在 `no_scope` 里写的注释是 **"makes system positions originate from galactic core"**（`events/distant_stars_events_2.txt:27`、`events/distant_stars_events_3.txt:1620`）——即距离/角度基准变成银河中心。`spawn_system = { initializer = "..." }` 只写 initializer、不写距离也是合法的（`events/game_start.txt:134-138` 就这样生成地心说彩蛋星系）。
+
+`distar_sealed_1_1` / `distar_sealed_1_2` 这两个 initializer 定义在 `common/solar_system_initializers/distant_stars_initializers.txt:3659` 与 `:3706`。
+
+### `set_spawn_system_batch = begin` / `end`：多个 spawn 必须批量
+
+围绕若干次 `spawn_system` 加 `set_spawn_system_batch = begin` / `end`，原版注释说明了原因（`events/distant_stars_events_3.txt:1615-1618`、`events/distant_stars_events_2.txt:25-30`）：
+
+```pdx
+set_spawn_system_batch = begin
+# batch-processes the spawn_system effects between "begin" and "end",
+# so caches are recalculated only once rather than for every system spawned
+# can also be used when removing and adding hyperlanes
+no_scope = {
+	...
+}
+set_spawn_system_batch = end
+```
+
+不加批量时，后续的 spawn 会因为在已被占用的位置上找不到合法落点而失败，报 `Failed to find position at minimum distance SPAWN_SYSTEM_BUFFER_DISTANCE = 10 from other systems`（该常量名确实是引擎常量，见 `stellaris.exe` 中 `SPAWN_SYSTEM_BUFFER_DISTANCE`；该报错文案未在 Pegasus 4.4.6 的 `stellaris.exe` 字符串里找到，故数值 10 未复核）。`effects.log:670-673` 对它的描述是 "Optimizes the calls for spawn_system effect. Spawn system should be located in a block between Begin and End."，Supported Scopes 为 `all`。
+
+**辅助手段**：给每个星系各自的距离带（不要都挤在 `min_distance >= 20 max_distance <= 50`）能显著降低落点冲突——原版封星系就是这样一组一组错开的（`distant_stars_events_2.txt:41-53`）。
+
+### initializer 的 `planet` 条目字段
+
+`planet = { ... }` 除 `class` / `orbit_distance` / `orbit_angle` / `size` / `has_ring` / `name` / `count` / `modifier` / `anomaly` / `moon` / `init_effect` 外，还接受这些字段（均在原版 initializers 中有实例）：
+
+```pdx
+planet = {
+	class = "pc_barren"
+	orbit_distance = 0            # 相对【前一个天体】的增量，累加，不是绝对半径
+	orbit_angle = 1
+
+	entity = "cold_barren_planet_luna_entity"   # 逐天体覆盖外观，原版给 Luna 用
+	                                             #（distant_stars_initializers.txt:4236）
+	modifiers = none              # 原版 133 次
+	deposit_blockers = none       # 原版 97 次
+	has_independent_orbital_line = yes           # 原版 7 次（example.txt:91 有注释）
+
+	# 占位惯用法：留一条轨道线/占一个轨道槽，但不生成可见天体
+	size = 0
+	init_effect = { remove_planet = yes }        # 原版 6 次，sol_initializers.txt:3718 / 3751 / 3785 / 3812
+}
+```
+
+`example.txt:91` 对 `has_independent_orbital_line` 的说明是：让可见轨道线独立于行星存在，行星被摧毁后轨道线仍在。`size = 0` + `init_effect = { remove_planet = yes }` 的组合在 `init_sol_geocentric` 里成组出现（`sol_initializers.txt:3716-3812`），用途是"轨道先占位、天体后删除"。`orbit_distance` 的累加语义在 `example.txt:86-87` 有更明确的注释："Distance from the center of the system, relative to the previous planet's orbit (e.g. if the previous planet was placed at distance 100 from the center, `orbit_distance = 10` would put us 110 units from the center)"。
+
+### `change_orbit`：对"当前轨道累计值"做一次**增量**（环世界就是这么造的）
+
+`change_orbit = <n>` 不是"天体"，它**把 `<n>` 加到当前累计轨道半径上**——即 `example.txt:128-129` 所说的 `planet = { class = none orbit_distance = X }` 的简写，语义是**一次 orbit 步进（增量）**，不是"给后面天体设定绝对半径"。这一点由原版写法直接证实：原版会写**负值**，只有增量语义才成立：
+
+```pdx
+# common/solar_system_initializers/custom_starting_initializers.txt:96
+change_orbit = -210
+```
+
+原版 initializers 里 `change_orbit` 共 **681** 次，其中**负值 27 次**（`-45` … `-245`），例如 `custom_starting_initializers.txt:96/344/981`、`empire_initializers.txt:610`、`federations_initializers.txt:757`、`first_contact_initializers.txt:1072`、`distant_stars_initializers.txt:4577`、`00_nomad_custom_initializers.txt:828`。
+
+`federations_initializers.txt:757` 的语境最能说明问题——它属于 `void_dweller_system`（该 initializer 起于 `:609`）。此前几颗行星各写 `orbit_distance = 25`，如果这些值是"绝对半径"，累计值只到 25，再 `-210` 会得到负半径；按增量语义，累计值约 263，`change_orbit = -210` 把它**拉回到约 53**，让后面三颗行星（`orbit_distance = 15/15/20`，`:762/:774/:784`）落在内侧——这才是原版想要的布局。
+
+**把同一批天体写成 `orbit_distance = 0` 但 `orbit_angle` 不同**，它们就落在同一条轨道上、闭合成环——原版环世界就是这么造的：
+
+```pdx
+# common/solar_system_initializers/federations_initializers.txt:1935-1964（shattered_ring_start，破碎之环起源）
+class = "sc_g"
+planet = {
+	class = star
+	orbit_distance = 0
+	orbit_angle = 0
+}
+
+change_orbit = 45                 # 累计轨道半径 +45，落到 45
+
+planet = {
+	class = "pc_ringworld_tech"
+	name = "NAME_Ring_Section"
+	orbit_angle = 240
+	orbit_distance = 0            # +0：留在 change_orbit 刚给到的 45 上
+}
+
+planet = {
+	class = "pc_ringworld_seam"
+	orbit_angle = 30
+	orbit_distance = 0            # 同样 +0，与上面共享 45 这条轨道
+}
+
+planet = {
+	class = "pc_shattered_ring_habitable"
+	orbit_angle = 30
+	orbit_distance = 0
+	deposit_blockers = none
+	modifiers = none
+	starting_planet = yes
+	flags = { ignore_startup_effect megastructure }
+	init_effect = { prevent_anomaly = yes }
+}
+```
+
+环世界那一段的脚注：`shattered_ring_start` 定义在 `federations_initializers.txt:1908`，其 `change_orbit = 45` 在 `:1942`，前面恒星的 `orbit_distance = 0` 在 `:1938`。**这里"共享同一条轨道"的效果来自三个天体各自都只做 `+0` 增量**——按增量语义才自洽（若 `change_orbit` 是绝对赋值，`+45` 之后每个环段再"设"成 0 就会把半径打回 0）。
+
+参考量级：`change_orbit` 合计 **681** 处，其中**负值 27 处**（`-45` … `-245`），正数最大 `250`（`marauder_initializers.txt:1465`）；单条 `orbit_distance` 最大 `360`（`distant_stars_initializers.txt:4382`）。两者都远低于 469 的实测上限，所以"原版为什么不出 `is too big`"有一个量化的解释。
+
+### 系统外半径上限：**469 合法，470 越界**（有实测，不是猜的）
+
+这一条有完整的四轮受控实验（`<mods>\system_size_probe\REPORT.md`，原始日志在 `REPORT.md` 同目录 `evidence/error.log.run1..run4` + `game.log.run1..run4`），全部在 **Pegasus 4.4.6** 上跑：
+
+```
+最外层累计 orbit_distance  +  130  <  600
+```
+
+* **最大合法外半径 = 469；470 报错。** 单点裁决（run 4 位置受控轮）：`链 469 PASS` / `链 470` 记录 `is too big`。
+* 隐藏的 `130` = `SYSTEM_OUTER_RADIUS_OFFSET`（`100`，`common/defines/00_defines.txt:731`）+ `SYSTEM_INNER_RADIUS_OFFSET`（`30`，`:729`）。
+* 被强制执行的 define 是 `CELESTIAL_WARNING_COORDINATE_VALUE = 600`（`common/defines/00_defines.txt:363`），原文注释为 *"System size at which you get errors for the system being too big (500 is the normal values, as graphics can glitch with bigger values)"*；`:364` 另注 *"upping limit because certain systems go higher…"*。它就是报错里打印的 `<N>`：
+
+```
+System <system name> with initializer <initializer key> is too big.
+Make sure the outer radius is smaller than 600.
+```
+
+（该两行格式串在 `stellaris.exe` 内确认，出处 `...\source\spatial_objects\galactic_object.cpp`；实验中每轮都原样打印 `smaller than 600`。）
+
+**三项"不参与计算"的实测结论：**
+
+1. **小行星带完全不算。** 不是相加、也不是取 `max()`：链 469 + 半径 **2000** 的岩石带 PASS（与链 469 无带的行为完全一致）；链 400 + 半径 800 的带 PASS；链 100 + 半径 500 的冰带 PASS。旁证：原版最大小行星带半径 335，有 34 个 initializer 把带放在轨道范围之外（最多外伸 280），没有一个报错——若按相加算，37 个原版 initializer（含所有 Sol 变体、`marauder_1_1`）都该非法。
+2. **恒星与行星的 `size` 不算。** 链 450 + `size = 60` 的恒星 PASS；链 450 + `size = 60` 的气态巨行星 PASS（run 3 与 run 4 各测一次）。
+3. **星系中的位置不算。** 该检查读的是 **initializer 自身的"以本星系中心为原点"的轨道链**，不是银河坐标。run 4 把 12 个数值探针塞进**同一个 `min_distance >= 20 / max_distance <= 26` 的 20-26% 环带**内的 12 个互不重叠楔形里：链 469 在 4 个不同位置（含带 2000 的那个）全部 PASS，链 468 在 2 个位置全部 PASS，零不一致。对照：银河放置用的 `min_distance` / `max_distance` / `min_orientation_angle` / `max_orientation_angle` 是**另一套坐标空间**（占银河半径的百分比），只决定"星系放在哪"，不参与"星系多大"。
+
+**原版自己的最大链是 435**：`holibrae_initializer`（`common/solar_system_initializers/special_system_initializers.txt:2390`，行星轨道写在 `:2505-2555`）——按 `+130` 规则是 565，仍低于 600；而按旧的 500 上限则是 565 > 500，正好对应 `00_defines.txt:364` 那句"某些星系会更高"的注释。这也是每一轮都观察到 **0 条原版 `is too big`** 的原因。
+
+**哪些是实测、哪些是推断，必须分清：**
+
+| 结论 | 性质 |
+| --- | --- |
+| 469 合法 / 470 非法；`+130 < 600` 这个形式 | **实测**（`REPORT.md` §3 run 4，`evidence/error.log.run4`） |
+| 带、`size`、星系位置都不参与 | **实测**（run 2 / run 3 / run 4） |
+| `130 = 100 + 30` 归因到那两个 define | **推断**：`130` 这个数字是量出来的，但"引擎内部就是取这两个 define 之和"只是**数值上的精确吻合**，不是读过引擎代码 |
+| `CELESTIAL_WARNING_COORDINATE_VALUE = 600` 是那个 `<N>` | **实测 + 二进制佐证**（报错文本每轮打印 `smaller than 600`；`stellaris.exe` 含该格式串） |
+| 小行星带在"链本身已非法"的极端组合下是否另有所为 | **未测**（无关紧要：那种星系仅凭链就已经越界） |
+
+### 超大星系：**没有生成上限，卡住的是"星系视图"**（`is too big` 只是警告）
+
+上一节的 469/470 容易被读成"星系不能做大"。**这是错的**，必须分开两件事：
+
+* **生成（generation）没有上限。** 实测链 **3480** 的星系能正常生成并出现在银河里；另外单独测过链 **1200** 与链 **2000**，同样生成。`System <key> with initializer <key> is too big. Make sure the outer radius is smaller than 600.` 是**警告**：星系与它的全部天体都**存在**、可选中、可交互，只是引擎明说"图像可能出问题"（见 `00_defines.txt:363` 的注释原文 *"500 is the normal values, as graphics can glitch with bigger values"*）。所以超限不会让 initializer 失效，也不会吞掉天体。
+* **真正的实用上限是星系视图（system view）的渲染/相机范围。** 在超大星系里，3D 天体照常绘制出来，但**轨道线（orbit lines）与边界/重力井（border / gravity-well）圆环在上下两端被截断**；此时平移（pan）能把被截掉的部分拉回视野。也就是说：不是"内容没生成"，而是"相机没把这一圈收进可视范围"。
+
+**为什么不是 UI 的裁剪矩形（clipping）：**
+
+* 把 vanilla `interface/` 下所有 `.gui` 扫了一遍（本机 Pegasus 4.4.6 共 **177** 个 `.gui`）：`clipping = yes` 共 **229** 行，其中 **1 行被注释掉**（`interface/espionage_operation_view.gui` 里那一处）→ **生效的裁剪容器 228 个，分布在 80 个文件里**。（若按允许任意空白的正则 `/clipping\s*=\s*yes/g` 计会数到 230，差的只是空格写法，不影响结论。）
+* `galaxy_view.gui` 里只有 **2** 处 `clipping = yes`，两处都是左侧面板控件：`:54` 的 `containerWindowType = { name = "species_box" }`、`:587` 的 `containerWindowType = { name = "detailed_diplomacy_window" }`。
+* `mapicons.gui`（1181 行）里 `clipping = yes` **0** 处。
+* 全库 `.gui` 里 `orbit_line` / `orbitline` / `gravity_well` / `system_view` / `systemview` 全部 **0 命中**：没有任何 `.gui` 引用轨道线、重力井或星系视图，星系视图是直接画到屏幕上的，不经过 GUI 容器。
+
+**已核对到的候选机制是星系视图相机**（`common/defines/00_defines.txt`）：
+
+| define | 行 | 本机值 | 含义 |
+| --- | --- | --- | --- |
+| `SYSTEM_FAR_PLANE_DISTANCE_BASE` | `:4` | `12000.0` | 星系视图远平面距离 |
+| `ZOOM_STEPS_SYSTEM_PERCENTAGES` | `:45` | `{ 0.025 0.1 0.25 0.5 1.0 1.5 3.0 }` | 星系视图缩放档位，最深一档 3.0（注释里的默认值只到 1.5；`:44` 是被注释掉的旧值） |
+| `SYSTEM_CAMERA_RESTRICT_EXTRA_SPACE` | `:68` | `100.0` | 相机能越过星系外半径多少（注释 *"how far the camera can go outside a systems outer radius"*） |
+
+**但这些数值是不是元凶，实验给出了否定答案（待确认，不要当成结论）：**
+
+本机做过一次实机验证（测试 mod `geocentric_view_test`，覆盖文件 `common/defines/zz_geocentric_view_defines.txt`，内容仍在 `<mods>\geocentric_view_test`）：
+
+| 改动 | vanilla | 实验值 |
+| --- | --- | --- |
+| `SYSTEM_FAR_PLANE_DISTANCE_BASE` | `12000.0` | **`60000.0`** |
+| `ZOOM_STEPS_SYSTEM_PERCENTAGES` | 20 档以内，最深 `3.0`（IBS 给到 `4.0`） | 20 档，最深两档 `6.0` / `8.0` |
+| `SYSTEM_CAMERA_RESTRICT_EXTRA_SPACE` | `100.0`（IBS 给 `50.0`） | **`4000.0`** |
+| `ENTER_SYSTEM_ZOOM_STEP` | `6` | `19`（进星系即最远） |
+
+结果：进星系后**完全拉到最远** —— **轨道覆盖层依然被截断**（平移仍能找回，与改之前现象一致）。因此至少有两条解释，**都没有**被排除：
+
+1. **共用键被本机同时安装的 IBS mod 抢走（或合并顺序不为我所知）。** IBS 的 `common/defines/IBS_defines.txt` 也重定义了 `ZOOM_STEPS_SYSTEM_PERCENTAGES`（20 档、最大 `4.0`）与 `SYSTEM_CAMERA_RESTRICT_EXTRA_SPACE`（`50.0`）；两个 mod 定义同一个 define 键时**引擎不写任何日志说明谁生效**（见下），所以"这两个键到底用了谁的值"无法从日志判定。
+2. **这个界限硬编码在引擎里**，那几个 define 不参与（或只参与一部分）星系视图的裁剪。
+
+**一个能把线索收窄的事实**：IBS **不碰远平面**，所以"`12000` → `60000`"这一项**没有被抢**、确实生效了，可截断依旧 —— 远平面大概率不是那个界限，可疑的是缩放档 / 相机空间这两个**共享键**，或者纯粹是引擎硬编码。
+
+→ 整条结论标记为 **待确认**，附带记录已做过的实验，而不是宣布一个已被实验否掉的机制。想收尾需要做一个"独占测试"：**只**启用一个改 define 的 mod（排除 IBS），并把改动做成**用户可见**的形式（该 mod 把 `ENTER_SYSTEM_ZOOM_STEP` 改成 19 就是为此准备的标志位），以便确认文件确实被应用。
+
+**两条同源的方法论副作用（都值得单独记住）：**
+
+* **未知 define 键会被静默忽略。** 塞一个不存在的键进去，值不会有任何效果、日志里也**一个字都没有**。所以 `game.log` 的 `N defines loaded` 计数（本机 `logs/game.log:2` = `2113 defines loaded`）只能证明"发生了一次合并"，**永远不能**用来证明"某个具体 mod 文件被应用了"。
+* **两个 mod 重定义同一个 define 键时引擎不记录谁赢。** 因此判断"我的 define 有没有生效"的唯一可靠手段是：**故意给一个玩家肉眼可见的数值**（分辨率、缩放档、明显异常的量），进游戏直接看现象；纯日志手段在这里是盲的。
+
+### `usage = misc_system_init` + `usage_odds = 0`：只让脚本生成
+
+带 `usage = misc_system_init` 的 initializer 会被银河随机生成抽取；把 `usage_odds` 设为 0 就把它从随机抽取中排除掉，于是它**只在脚本显式调用时出现**。`the_chosen_home_initializer` 就是这个模式：
+
+```pdx
+# common/solar_system_initializers/special_system_initializers.txt:2625-2639
+# Chosen starting system
+the_chosen_home_initializer = {
+	class = sc_g
+	name = NAME_Aspharelle
+	flags = {
+		chosen_system
+		crisis_spawn_exclude
+	}
+	usage = misc_system_init
+	usage_odds = 0
+	prevent_anomalies = yes
+	...
+}
+```
+
+原版 `usage_odds = 0` 共 **34** 处。这条与 `usage` 完全不写（只能被脚本/起源调用）的区别在于：写了 `usage` 再置 `usage_odds = 0` 保留了这个 initializer 在 `misc_system_init` 分类里的身份，便于其他脚本按分类查找。
+
+## 把星系放到银河正中央：`authorize_spawn_on_galactic_core` + `move_system`
+
+**initializer 里没有任何"地图位置"字段**——位置只能由 `spawn_system` / `move_system` 效果决定（这也是 `min_distance` 为什么不属于 initializer 的原因，见上文）。想把一个 origin 的母星系钉在银河正中央，Pegasus 4.4.6 里可用的原版路线是三段：
+
+1. `spawn_system` + `authorize_spawn_on_galactic_core = yes` 在银心落一个坐标锚点；
+2. `move_system = { target = <锚点> ... }` 把**真实星系**搬过去；
+3. 银心没有任何恒星（`map/galaxy/galaxy_shapes.txt:4` = `num_stars_core_perc = 0`，该文件 10 个银河形状全部为 `0`/`0.0`），被搬进去的星系会掉出超空间网络，需要用 `add_hyperlane` 重新接入。
+
+### 银心落点：`spawn_system` + `authorize_spawn_on_galactic_core`
+
+```pdx
+# events/astral_rifts_1_events.txt:387-404（astral_rift.1095）
+system_event = {
+	id = astral_rift.1095
+	hide_window = yes
+	is_triggered_only = yes
+
+	immediate = {
+		no_scope = {
+			# place system position at galactic core
+			spawn_system = {
+				min_distance >= 0
+				max_distance <= 0
+				min_orientation_angle = 0
+				max_orientation_angle = 360
+				initializer = formless_system_initializer
+				hyperlane = no
+				authorize_spawn_on_galactic_core = yes
+			}
+		}
+		...
+	}
+}
+```
+
+要点：
+
+- `authorize_spawn_on_galactic_core` 在 Pegasus 4.4.6 的**整个安装目录里只出现这 1 次**（`events/astral_rifts_1_events.txt:402`），没有第二种用法可以对照。它显然是对"银心是禁止落点"这条规则的显式豁免开关；没有它，效果会绕开银心（本机 error.log 里就能看到"找不到落点"的报错，见下）。
+- `min_distance >= 0` / `max_distance <= 0` 是"必须正好落在银心"：距离是**银河半径的百分比、从银心量起**，区间退化成 0 就是银心本身。注意运算符仍然写在键名里。
+- `hyperlane = no` 是必须的：银心周围没有可供连接的星系，写 `yes` 或不写必然失败（原版报错 `spawn_system: found no possible system for the new system to connect with around <位置>`）。
+- 整块在 `no_scope = { ... }` 里，因为 `spawn_system` 的合法作用域不含 `country`。
+
+### `move_system`：把真实星系搬过去（区间无法满足时会兜底到银心）
+
+`move_system` 是 `spawn_system` 的"搬家版"，签名见 `logs/script_documentation/effects.log:3466-3468`：
+
+```
+move_system - Moves scoped system to a position relative to the given system/planet/ship.
+move_system = { target = <system/planet/ship> min_jumps = <value> max_jumps = <value> min_distance = <int 0-100> max_distance = <int 0-100> hyperlane=<yes/no> reset_terra_incognita = <yes/no>}
+Supported Scopes: galactic_object
+```
+
+作用域只有 `galactic_object`，所以写法是 `event_target:<星系> = { move_system = { ... } }`；距离同样用 `min_distance >= X` / `max_distance <= X`（比较运算符写在键名里）。
+
+**距离区间无法满足时，`move_system` 会把星系丢到银心兜底**——这正是"把母星系精确钉在银心"的实现手法。本机日志里可以同时看到两个分支【实测日志】（日志末尾即一次 geocentric 起源开局）：
+
+```
+[23:27:30][effect_impl_spawn_system.cpp:705]: move_system: Failed to find a position within defined parameters at  file: events/zz_geocentric_events.txt line: 81, sending it to the galactic core instead
+[23:27:29][effect_impl_spawn_system.cpp:288]: spawn_system/move_system: Failed to find position at minimum distance SPAWN_SYSTEM_BUFFER_DISTANCE = 10 from other systems at  file: events/zz_geocentric_events.txt line: 55; retrying without checking SPAWN_SYSTEM_BUFFER_DISTANCE
+```
+
+（`events/zz_geocentric_events.txt` 是本机 mod 的事件文件，只作为"这段代码确实跑过"的**实测日志**证据；参数写法与 `events/astral_rifts_1_events.txt:395-403` 完全一致。）
+
+### 搬进去之后要重连超空间航道
+
+原版的重连套路在 `events/origin_events_shadows_shroud.txt:122-152`：
+
+```pdx
+# events/origin_events_shadows_shroud.txt:122-152（把搬走的星系重新接入本地星网）
+				move_system = {
+					target = event_target:target_system
+					min_distance >= 10
+					max_distance <= 15
+					direction = rimwards
+					max_jumps = 0
+					hyperlane = yes
+					reset_terra_incognita = yes
+				}
+				every_neighbor_system_euclidean = {          # 按欧氏距离而不是超空间跳数找邻居
+					limit = {
+						NOR = {
+							has_star_flag = surveillance_supercomputer_system
+							has_special_star_flag_trigger = yes
+							has_natural_wormhole = yes
+							any_system_planet = { is_colonizable = yes }
+						}
+						NOT = { has_hyperlane_to = prev }    # 去重：已经有航道就跳过
+						distance = { source = prev  max_distance < 60  type = euclidean }
+					}
+					add_hyperlane = {
+						from = prev
+						to = this
+					}
+				}
+```
+
+`add_hyperlane` 的签名见 `effects.log:1911-1913`：`add_hyperlane = { from = <system> to = <system> }`，Supported Scopes 为 `all`。银心没有恒星，不补线的话被搬进去的星系只能靠一条长线连着锚点。
+
+## 从 initializer 的 `init_effect` 里生成一对互连的天然虫洞
+
+`spawn_natural_wormhole` 的作用域是 `galactic_object`（星系），`link_wormholes` 支持 `galactic_object` 与 `bypass`（`effects.log:1801-1807`）。initializer 的 `init_effect` 里 `this` = 本星系，所以标准写法是"先放两个虫洞，再把它们连起来"：
+
+```pdx
+# common/solar_system_initializers/special_system_initializers.txt:3186-3210
+# 属于 the_chosen_gate_initializer（:3075，flags 里含 chosen_system，:3081）
+	init_effect = {
+		random_system = {                 # this = 随机挑出的那个星系
+			limit = {
+				has_natural_wormhole = no
+				is_fe_cluster = no
+				NOR = {
+					has_star_flag = empire_cluster
+					has_star_flag = chosen_system
+				}
+			}
+			spawn_natural_wormhole = {     # 远端虫洞
+				bypass_type = wormhole
+				random_pos = no
+				orbit_angle = 360
+			}
+			prev = {                       # prev = initializer 自己的星系
+				spawn_natural_wormhole = {  # 近端虫洞
+					bypass_type = wormhole
+					random_pos = no
+					orbit_angle = 270
+				}
+				link_wormholes = prev      # this = 近端虫洞所在星系，prev = 远端星系
+			}
+		}
+	}
+```
+
+**作用域链是这套写法的全部难点**：进入 `random_system = { ... }` 后 `this` = 随机星系、`prev` = initializer 的星系；因此在 `prev = { ... }` 里 `this` = 本星系（刚放的虫洞）、`prev` = 随机星系（先前放的虫洞），`link_wormholes = prev` 正好把两端连上。原版注释也专门提醒过别生成孤立虫洞：`events/game_start.txt:1964` = `prev = { # done this way to ensure we don't spawn "orphan" wormholes (wormholes that aren't linked to anything)`。
+
+**两种等价顺序都存在**（先放"自己家"、先放"远处"都行，只要最后 `link_wormholes = prev` 时的 `this`/`prev` 正确）：
+
+- 先远后近：`common/solar_system_initializers/special_system_initializers.txt:3196-3207`（如上）；
+- 先近后远：`events/central_crystal_events.txt:74-86`、`events/distant_stars_events_2.txt:119-131` 与 `:8402-8414`、`events/game_start.txt:1964-1976`、`common/scripted_effects/fallen_empire_scripted_effects.txt:1791-1802`、`common/scripted_effects/nomads_effects.txt:3572-3581`、`common/scripted_effects/00_scripted_effects.txt:7540-7552`（zroni）。
+
+另一类写法不套 `random_system`，而是在 `spawn_system` 的 `effect = { ... }` 里直接放（`common/scripted_effects/00_scripted_effects.txt:7503-7510`，同时把星系存成全局 event target），或用 `in_place_of = <已有天体>` 借用位置并配合 `graphics_entity_name`（`events/astral_rifts_1_events.txt:405-413`）。
+
+## 天体槽位与实体查找：星位（STAR slot）和行星位并不一样
+
+星系的恒星本身也是"先当行星生成、再转成恒星"（`example.txt:58-63`）。但**实体名解析规则在两种槽位上不同**，这是 Pegasus 4.4.6 里最容易踩的坑之一。
+
+### 行星位：`entity` 是"基名"，引擎自动补变体后缀
+
+`pc_ringworld_habitable` 写的是基名：
+
+```pdx
+# common/planet_classes/00_planet_classes.txt:1373-1382
+pc_ringworld_habitable = {
+	ringworld = yes
+	entity = "ringworld_habitable_entity"
+	preview_entity = "ringworld_01_damaged_full_entity"
+	...
+	entity_scale = 1.0
+	enable_tilt = no
+	fixed_entity_scale = yes
+```
+
+而 `gfx/models/planets/_planetary_entities.asset` 里定义的实际资源名带变体后缀：
+
+```pdx
+# gfx/models/planets/_planetary_entities.asset:2990-2993
+entity = {
+	name = "ringworld_habitable_entity_01_entity"
+	cull_radius = 500.0
+	pdxmesh = "ringworld_habitable_01_mesh"
+```
+
+即行星位的查找是"基名 + 变体后缀"。`stellaris.exe` 内同时含 `_%02d_entity`、`_xx_entity` 与 `Failed to find entity "`，说明引擎会在基名上试 `_<两位数字>_entity` 之类的变体。
+
+### 星位：`entity` **原样使用**，不补后缀
+
+恒星槽位不走这套变体探测：`gfx/models/planets/_star_entities.asset:66-67` 定义的名字就是 `g_star_class_star_entity`，而 `pc_g_star`（`00_planet_classes.txt:1149`）写的正是这个完整名字：
+
+```pdx
+# common/planet_classes/00_planet_classes.txt:1148-1150
+pc_g_star = {
+	entity = "g_star_class_star_entity"
+	entity_scale = 20.0
+```
+
+**所以在星位上写"基名"（例如只写 `g_star_class_star_entity` 去掉 `_entity` 之外的东西，或写行星那种基名）会导致原样查找失败，引擎随后去探变体，最终报：**
+
+```
+Failed to find entity "<name>_xx_entity" for planet <...>
+```
+
+（该格式串在 `stellaris.exe` 中确认，出处为 `...\source\spatial_objects\planet_class.cpp`。）注意报错里出现的是 `_xx_entity` 结尾——那是**探测失败**的痕迹，不是让你去定义这个名字。
+
+### 星位天体可以殖民（原版从不这么做）
+
+定义一个**既是 `star = yes` 又 `colonizable = yes`** 的行星类，引擎加载时不报错，游戏内也确实给出殖民选项——这在 Pegasus 4.4.6 中验证过。原版自己从不这么写：Pegasus 4.4.6 的 `common/planet_classes/` 下全部 **14** 个 `star = yes` 的类都是 `colonizable = no`：
+
+| 类 | 位置 |
+| --- | --- |
+| `pc_b_star` `pc_a_star` `pc_f_star` `pc_g_star` `pc_k_star` `pc_m_star` `pc_m_giant_star` `pc_t_star` | `common/planet_classes/00_planet_classes.txt:1064/1092/1120/1148/1176/1204/1232/1260` |
+| `pc_black_hole` `pc_neutron_star` `pc_pulsar` `pc_toxoid_star` | `00_planet_classes.txt:1289/1317/1340/1743` |
+| `pc_rift_star` | `common/planet_classes/00_planet_classes_astral_planes_dlc.txt:1` |
+| `pc_protostar` | `common/planet_classes/06_planet_classes_nomads.txt:110` |
+
+（12 个在 `00_planet_classes.txt`，另外 2 个分别在星界裂隙与游牧 DLC 文件里——共 14 个；按块扫描，`star = yes` 的类没有任何一个缺少 `colonizable`，也全部 `colonizable = no`。）
+
+星类**惯用**的字段组合是"可殖民性关闭 + 零距离 + 零权重 + 光照气候"，因为恒星本身不参与行星随机抽取：
+
+```pdx
+# common/planet_classes/00_planet_classes.txt:1148-1173（pc_g_star）
+pc_g_star = {
+	entity = "g_star_class_star_entity"
+	entity_scale = 20.0              # 原版星类基本都是 20.0（例外见下）
+	picture = "pc_g_star"
+	icon = GFX_planet_type_f_g_star
+	icon_large = GFX_planet_type_f_g_star_big
+
+	atmosphere_color		= hsv { 0.09 0.7 0.7 }
+	atmosphere_intensity	= 0.5
+	atmosphere_width		= 1.9
+
+	climate = "luminosity_2"
+	star = yes
+
+	min_distance_from_sun = 0
+	max_distance_from_sun = 0
+	spawn_odds = 0
+
+	extra_orbit_size = 0
+	extra_planet_count = 0
+	chance_of_ring = 0
+
+	planet_size = { min = 20 max = 35 }
+
+	colonizable = no
+}
+```
+
+补充事实：
+- **`climate = "luminosity_<0-4>"` 是原版星类的标准字段**，用于恒星的光照（luminosity）气候；`pc_g_star` 就是 `climate = "luminosity_2"`（`00_planet_classes.txt:1159`）。Pegasus 4.4.6 里 14 个星类**全部**带 `climate`，取值分布：`luminosity_0`（`pc_t_star`、`pc_black_hole`、`pc_protostar`）、`luminosity_1`（`pc_m_star`、`pc_m_giant_star`）、`luminosity_2`（`pc_g_star`、`pc_k_star`、`pc_toxoid_star`）、`luminosity_3`（`pc_b_star`、`pc_a_star`、`pc_f_star`、`pc_rift_star`）、`luminosity_4`（`pc_neutron_star`、`pc_pulsar`）。相关的还有 `common/game_concepts/12_nomads_concepts.txt:31` 的概念 `concept_star_luminosity` 与 `common/script_values/08_script_values_nomads.txt:677-681`（按 `has_climate = luminosity_$luminosity$` 取值）。
+- `entity_scale = 20.0` 是常态，例外：`pc_t_star` 用 `30.0`、`pc_protostar` 用 `15.0`、`pc_rift_star` 用 `6.0`。
+- `star_gfx = no` 只出现在 `pc_t_star`、`pc_rift_star`、`pc_protostar` 三个类上。
+- `fixed_entity_scale = yes` 在原版只用于 `pc_cybrex`、环世界系列（`pc_ringworld_*`、`pc_shattered_ring_habitable`）、`pc_habitat`、`pc_cosmogenesis_world`（`00_planet_classes.txt:1007/1380/1424/1447/1472/1498/1524/1550/1588/1631`）——**14 个星类一个都没写**。
+- **被推翻的假设**：曾推测 `fixed_entity_scale` 会改变变体族查找。Pegasus 4.4.6 实测**不会**：给星位天体设 `fixed_entity_scale` 仍是原样查找，不能靠它把"基名"自动补成实体资源名。
+
+## 恒星类 `common/star_classes/*.txt`
+
+恒星类把"这个星系能出什么行星"整体定义下来，被 initializer 的 `class` 引用（`class = sc_g`，或从随机列表 `rl_*` 抽）。文件头自带逐字段注释（`common/star_classes/00_star_classes.txt:4-11`）：
+
+```pdx
+# common/star_classes/00_star_classes.txt:23-40（sc_b，注释在文件头 4-11 行）
+sc_b = {
+	class = b_star                       # 光照/代码引用的 ID（如 g_star、b_star）
+	planet = { key = pc_b_star }         # 真正的恒星行星类：3D 资源、大小、可殖民性都在那里
+	spawn_odds = 10                      # 在随机列表里的权重
+
+	num_planets	= { min = 4 max = 10 }   # 该恒星类下随机生成几颗行星
+
+	pc_continental	= { spawn_odds = 0.4 }    # 覆盖某个行星类在此处的出现权重
+	pc_desert		= { spawn_odds = 0.4 }
+	...
+	pc_savannah		= { spawn_odds = 0.4 }
+
+	arkship_picture = "arkship_class_b"
+}
+```
+
+要点：
+1. `class = <光照 id>` 与 `planet = { key = <行星类> }` 是**两个不同的东西**：前者是光照/GFX/代码用的短 id（`g_star`、`b_star`…），后者才是恒星本体的行星类（`pc_g_star`…）。原版随机列表（`rl_binary_stars` 等）也定义在同一文件的下半部分。
+2. `spawn_odds` 是"被随机列表抽中"的权重；`num_planets` 决定该星系随机铺几颗行星。
+3. 块内可以按行星类名覆盖 `spawn_odds`，也可以直接 `pc_continental = { spawn_odds = 0 }` 彻底禁止某类在此恒星类下出现（文件头第 10-12 行的注释即讲这一点）。
+4. 文件头还列出 `can_be_crisis_terraformed`（第 10 行：阻止危机改造把该恒星类换掉）与 `arkship_picture`（第 11 行：`gfx/portraits/arkships/stars` 里的方舟画像背景）。
+5. 行星类自身的 `min_distance_from_sun` / `max_distance_from_sun` 仍会参与筛选：用 `class = random` 且距离不合适时，候选会取空，效果**等同于 `class = none`**（`example.txt:83` 的注释）。
+
+## 地心说彩蛋：`orbit_distance = 0.01` 而不是"用恒星槽位"
+
+原版有一个把地球放在恒星视觉位置上的彩蛋星系 `init_sol_geocentric`（`common/solar_system_initializers/sol_initializers.txt:3659`），由 `events/game_start.txt:134-138` 生成：
+
+```pdx
+# events/game_start.txt:134-138
+random_system = {
+	limit = { has_owner = no }
+	spawn_system = { initializer = "init_sol_geocentric" }
+}
+add_extra_hyperlane_to_spawned_system_effect = yes
+```
+
+它的实现方式是**保留普通恒星类**（`class = "sc_g"`），把地球放在半径 `0.01` 的轨道上——"压在恒星上"是近乎零的轨道半径做出来的，**不是**把地球塞进星位：
+
+```pdx
+# common/solar_system_initializers/sol_initializers.txt:3564-3586
+init_sol_geocentric = {
+	name = "NAME_Helios"
+	class = "sc_g"
+	...
+	planet = {
+		name = "NAME_Orrery_Site"
+		class = "pc_nuked"
+		orbit_distance = 0.01
+		orbit_angle = 1
+		size = 18
+		has_ring = no
+		modifiers = none
+		flags = { planet_earth ignore_startup_effect suppress_archaeological_sites }
+		init_effect = {
+			save_global_event_target_as = sol_system_earth
+			prevent_anomaly = yes
+			clear_blockers = yes
+			...
+		}
+	}
+	...
+}
+```
+
+同一星系里还用了"占位后删除"的惯用法：若干 `planet = { ... size = 0 ... has_independent_orbital_line = yes init_effect = { remove_planet = yes } }` 条目只为了给黄道面留出轨道线（`sol_initializers.txt:3809-3812`，同类条目另见 `:3716-3718`、`:3749-3751`、`:3782-3785`），其中甚至有把 `pc_g_star` 当一个卫星（`moon = { class = "pc_g_star" ... }`）放在 `pc_gas_giant` 里的写法（`sol_initializers.txt:3788-3799`）。
+
+
+## 校验要点
+
+1. `class = "rl_..."` 这类随机恒星类必须存在于 `common/star_classes/`，写错会导致 `class = random` 的行星生成失败（此时等同 `class = none`，行星不生成）。
+2. `modifier = "pm_xxx"` 必须存在于 `common/planet_modifiers/`；`anomaly` 必须是已定义异常。
+3. 行星类型的 `district_set` 必须与区划的 `uses_district_set` 值对得上，否则区划不会出现。
+4. `name` 字段写的是**本地化键**；`init_effect = { set_name = "..." }` 里的字符串是**直接显示的字面量**，不会查本地化。
+5. `usage` 不写时该 initializer 只能被脚本显式调用（Origin、预设帝国、`neighbor_system`）。
+6. 调试：`-script_debug` 启动参数会在随机行星类选择失败时写错误日志；控制台 `Draw.SystemInit` 显示实际使用的 initializer。
+7. 名称表里的名称也是本地化键（如 `HUM1_SHIP_...`），必须在 `localisation/` 里有对应条目，否则显示为键名。
+8. `spawn_system` 的距离要写成 `min_distance >= X` / `max_distance <= Y`（运算符在键名里）；裸 `min_distance = X` 是等号语义，不是区间下限。取值是"银河半径的百分比、从银心量起"，但别把它当 0-100 的硬上限——原版 L-Cluster 用了 `550`/`560`。
+9. `spawn_system` 的合法作用域是 `megastructure planet ship fleet galactic_object starbase no_scope colony`，**没有 `country`**；国家事件里必须套 `no_scope = { ... }`。
+10. 一次生成多个星系时，把 `spawn_system` 包在 `set_spawn_system_batch = begin` … `= end` 之间，并给每个星系错开距离带；否则后续 spawn 会因落点冲突失败。
+11. `hyperlane = no` 才产生孤立星系；不写或写 `yes` 时，靠银心越近越容易因找不到可连接的邻近星系而失败。
+12. **系统外半径上限是 `最外层累计 orbit_distance + 130 < 600`，即累计值最大 469（470 越界）**——`130` 是 `SYSTEM_OUTER_RADIUS_OFFSET`(100) + `SYSTEM_INNER_RADIUS_OFFSET`(30)，被执行的常量是 `CELESTIAL_WARNING_COORDINATE_VALUE = 600`。越界报 `System <key> with initializer <key> is too big. Make sure the outer radius is smaller than 600.`。小行星带、天体的 `size`、星系在地图上的位置**都不参与**这个计算（实测）。**注意：这是"警告线"，不是"生成上限"**——超过它的星系照样生成（链 3480 实测可生成），代价只是星系视图里轨道线 / 重力井环被截断，详见下文"超大星系"一节。
+13. `change_orbit = <n>` 是**对当前累计轨道半径的增量**（不是给后续天体设绝对半径）：`+n` 往外推、`-n` 往内收，原版有 27 处负值。同轨道的多个天体用 `change_orbit = <n>` 后连写几个 `orbit_distance = 0` + 不同 `orbit_angle`。
+14. 恒星槽位的 `entity` 是**原样查找**（写 `g_star_class_star_entity` 这样的完整资源名）；行星槽位才走"基名 + 变体后缀"。在星位上写基名会报 `Failed to find entity "<name>_xx_entity"`。
+15. `star = yes` 的行星类需要补 `climate = "luminosity_<0-4>"` 与 `min_distance_from_sun = 0` / `max_distance_from_sun = 0` / `spawn_odds = 0`（Pegasus 4.4.6 里 14 个星类全都这么写，且全都 `colonizable = no`）；原版星类的 `entity_scale` 基本都是 `20.0`（`pc_t_star` 30.0、`pc_protostar` 15.0、`pc_rift_star` 6.0 例外）。
+16. 想让 initializer 只被脚本生成、不参与随机银河生成，写 `usage = misc_system_init` + `usage_odds = 0`。
+17. 想让星系落在银河正中央：initializer **没有**位置字段，必须用 `spawn_system` + `authorize_spawn_on_galactic_core = yes`（配合 `min_distance >= 0` / `max_distance <= 0` 与 `hyperlane = no`）先落一个锚点，再用 `move_system` 把真实星系搬过去；`move_system` 的作用域只有 `galactic_object`。
+18. 银心没有恒星（`map/galaxy/galaxy_shapes.txt:4` = `num_stars_core_perc = 0`），被搬进银心的星系要用 `add_hyperlane = { from = ... to = ... }` 重新接入星网，否则星系存在但不可达（原版套路：`events/origin_events_shadows_shroud.txt:122-152` 的 `every_neighbor_system_euclidean` + `NOT = { has_hyperlane_to = prev }`）。
+19. `move_system` 的距离区间无法满足时会**兜底把星系丢到银心**（`effect_impl_spawn_system.cpp:705`），并在日志里留一行 `move_system: Failed to find a position within defined parameters ... sending it to the galactic core instead`——这是可用的确定性行为，不是需要"修掉"的故障。
+20. 从 `init_effect` 生成成对虫洞：两次 `spawn_natural_wormhole` + `link_wormholes = prev`，并且必须在嵌套作用域里核对 `this`/`prev` 的指向（`random_system = { ... }` 一旦进入，`this` 就已经不是本星系了）；漏掉连接会留下原版注释所说的 "orphan wormhole"。
+21. **`is too big` 是警告，不是生成失败**：链 3480 的星系（以及 1200 / 2000）都能生成，天体和星系本体都在。真正会"看起来不对"的是星系视图：3D 天体照画，但轨道线与边界/重力井圆环在上下两端被截断，平移可以找回。别为了消掉这行日志去砍星系尺度。
+22. 想让超大星系在视图里完整显示，目前**没有已证实的办法**：改 `SYSTEM_FAR_PLANE_DISTANCE_BASE` / `ZOOM_STEPS_SYSTEM_PERCENTAGES` / `SYSTEM_CAMERA_RESTRICT_EXTRA_SPACE` 的实机实验**失败**了（见上文"超大星系"一节的 待确认）。要么接受截断，要么把星系控制在相机能容纳的尺度内。
+23. 调 define 时**不要看 `game.log` 的 `N defines loaded` 当证据**：未知键被静默忽略，同一键的多 mod 冲突也不留日志；唯一可靠判据是一个玩家肉眼可见的数值变化。
+
+## 常见错误
+
+- **用 `common/deposit/`（单数）**：目录不存在，沉积物不加载。正确是 `common/deposits/`。
+- **用 `common/buildable_districts/`**：该目录在 Pegasus 4.4.6 不存在。
+- **把 `min_distance` / `max_distance` / `spawn_by` 当 initializer 字段**：Pegasus 4.4.6 中这三者在 initializers 里命中 0 次。距离控制属于 `neighbor_system` 的 `distance` / `hyperlane_distance` / `hyperlane_jumps`，或 `spawn_system` 效果。
+- **用 `is_planet_class` 判断自定义行星能否建某区划**：4.x 应用 `uses_district_set` + 行星类的 `district_set`。
+- **以为 `map/` 里能定义星系内容**：内容在 `common/solar_system_initializers/`。
+- **`neighbor_system.initializer` 指向不存在的键**：邻居不会生成（即使 `mandatory_neighbors = yes`）。
+- **改 `map/setup_scenarios/` 做小功能**：会全局改变银河尺寸与连通度。
+- **写 `min_distance = 30` 当成区间下限**：运算符必须写进键名（`min_distance >= 30`）。裸等号写法在原版里也有（`paragon_initializers.txt:22-23`），但语义是等号，不是"至少"。
+- **在 `country_event` 里直接写 `spawn_system`**：`country` 不在合法作用域列表里，必须套 `no_scope = { ... }`。
+- **一串 `spawn_system` 不包 `set_spawn_system_batch = begin/end`**：缓存每次都重算，后续 spawn 找不到落点。
+- **在星位行星类上写"基名"实体**：星位是原样查找，写基名会得到 `Failed to find entity "<name>_xx_entity"`。
+- **把 `orbit_distance` 当绝对半径**：轨道半径是一条**累计链**，`orbit_distance = N` 是这一棒走多远，最后比的是"最外层累计值 + 130 < 600"（上限 469）；叠一串大数很容易越线。
+- **把 `change_orbit = X` 读成"给后面的天体设定绝对半径 X"**：它是**增量**（等价于 `planet = { class = none orbit_distance = X }`），因此原版能写负数（`custom_starting_initializers.txt:96` 的 `-210`）。想固定在同一半径就写 `change_orbit = <n>` 再连写 `orbit_distance = 0`。
+- **以为小行星带 / 天体 `size` 会占用系统半径预算**：都不会（实测）。带放多远都不触发 `is too big`。
+- **以为星系在地图上的位置会影响 `is too big`**：不会。该检查只看 initializer 自己的、以本星系中心为原点的轨道链。
+- **给 `star = yes` 的恒星类漏写 `climate = "luminosity_<0-4>"`**：这是原版 14 个星类全都带的字段，用来定恒星的光照等级。
+- **想通过 initializer 的某个字段指定星系地图位置**：没有这种字段；位置只能由 `spawn_system` / `move_system` 决定。
+- **在银心 `spawn_system` 却不写 `authorize_spawn_on_galactic_core = yes`（或漏了 `hyperlane = no`）**：银心是默认禁止落点，效果会绕开银心或在"找不到可连接星系"时失败。
+- **把星系搬进银心后忘了 `add_hyperlane`**：星系在世界里存在，但星网上是孤岛。
+- **生成虫洞只放一个、或 `link_wormholes` 的 `this`/`prev` 指错**：得到"孤儿虫洞"（原版在 `events/game_start.txt:1964` 专门注释提醒过）。
+- **把 `move_system` 的"兜底到银心"日志当成必须消除的错误**：该分支是原版可用行为（`effect_impl_spawn_system.cpp:705`），只是会往 error.log 里写一行。
+
+## 待确认
+
+- `common/deposits/` 文件头注释列出的 `constant_modifier` 在 Pegasus 4.4.6 的 deposits 中命中 **0 次**（仅存在于注释），是否仍被解析未确认；`blocked_modifier` 同样未找到使用实例。
+- `spawn_by` 字段在 Pegasus 4.4.6 的 initializers 中 0 命中；早期版本（2.x）确实存在该字段，其被移除的确切版本号未确认。
+- `map/` 中早前版本存在的 `galaxy.png`、`static_galaxies/` 等在当前版本的确切状态未逐项核对（Pegasus 4.4.6 只见到 `galaxy/` 与 `setup_scenarios/`）。
+- `star_classes` 的完整字段（决定 `class = random` 时各轨道距离出什么行星）未逐字段核对。
+- `initializer` 的 `usage = origin` 与 `common/governments/civics/00_origins.txt` 的对接方式未验证。
+- `common/random_names/` 各文件的完整根键名（除 `empire_name_parts_list`）未逐一提取。
+- `spawn_system` 距离值的真实标度：`effects.log` 写 `<int 0-100>`，但原版 L-Cluster 用了 `550`/`560`；同一距离带在不同星系尺寸（tiny … huge）下对应的绝对半径未逐尺寸测量。
+- 报错文案 `spawn_system/move_system: Failed to find position at minimum distance SPAWN_SYSTEM_BUFFER_DISTANCE = 10 from other systems` 在 Pegasus 4.4.6 的 `stellaris.exe` 字符串里**未找到**，无法从二进制复核；但本机 `logs/error.log` 里实际打印过完整一行（`effect_impl_spawn_system.cpp:288`，常量值直接写成 `10`），所以**数值 10 已由运行日志确认**，只剩"为什么该格式串在 exe 里搜不到"这一点未解释。
+- `authorize_spawn_on_galactic_core` 在 Pegasus 4.4.6 全库只有 **1** 处用例（`events/astral_rifts_1_events.txt:402`），其完整语义（是否还影响其它落点校验、能否与 `direction` 等字段组合）未核对。
+- `move_system` 的"兜底到银心"分支只在本机 mod 的日志里观察到（`effect_impl_spawn_system.cpp:705`）；`target` 是真实星系、距离区间又完全不可满足时是否**总是**走同一分支，未做多场景测试。
+- `spawn_natural_wormhole` 的 `in_place_of`（借用已有天体位置）、`orbit_distance`、`random_pos` 各取值的组合效果未逐一测试。
+- `climate` 的取值域未从引擎侧完整复核：除 `"dry"` / `"wet"` / `"cold"` / `"artificial"` 外，Pegasus 4.4.6 另有 `luminosity_0` … `luminosity_4` 五档（仅用于 `star = yes` 的类），是否有其它取值未逐一验证。
+- `fixed_entity_scale` 在星位上不改变变体族查找这一点，本机没有可归档的引擎日志副本，只有观察结论。
+- **卫星（`moon`）是否计入"系统外半径"上限未确认**：469/470 那组受控实验的每一级探针都是**顶层天体**（top-level body），从未测过"顶层链合法 + 卫星把外沿推过 469"的组合。因此"上限 469"目前只对顶层轨道链成立；给卫星写大 `orbit_distance` 是否也会 `is too big`，需要用同类阶梯复测。
+- **`orbit_distance` 与 `change_orbit` 在嵌套作用域（`planet = { ... }` / `moon = { ... }` 内部）里的累计起点未从引擎侧确认**：本文按 `example.txt:86-87`（"relative to the previous planet's orbit"）与 `example.txt:128-129`（`change_orbit` 是该步进的简写）记为"对当前累计值的增量"，负值用例（`custom_starting_initializers.txt:96`、`federations_initializers.txt:757`）支持这一读法；但"进入 `planet` 块时累计值是否重置为父天体的位置"没有实测。
+- `change_orbit` 的统计口径：全库共 **681** 处（负值 27 处，`-45` … `-245`），正数最大 `250`；此数字按"以 `change_orbit` 开头的行"计，含嵌套作用域内的写法，未按深度分层统计。
+- **超大星系视图截断的真正机制未确认**（见"超大星系：没有生成上限…"一节）。已做的实验：mod `geocentric_view_test`（内容仍在 `<mods>\geocentric_view_test`）覆盖 `SYSTEM_FAR_PLANE_DISTANCE_BASE` 12000 → 60000、加深 `ZOOM_STEPS_SYSTEM_PERCENTAGES`、把 `SYSTEM_CAMERA_RESTRICT_EXTRA_SPACE` 提到 4000、`ENTER_SYSTEM_ZOOM_STEP` 6 → 19（进星系即最远），结果**轨道覆盖层仍被截断**（平移能找回）。两种可能都未被排除：① 缩放档 / 相机空间这两个键被同时安装的 IBS mod 抢走或合并顺序不明（IBS 不碰远平面，所以远平面确实生效了却没用）；② 界限硬编码在引擎里。收尾实验要求：**只**挂载一个改 define 的 mod，并把改动做成肉眼可见的数值。**在此之前不要声称已找到机制。**
+- define 合并的可观测性盲区：未知 define 键被静默忽略（无日志）；两个 mod 重定义同一键时也不记录谁赢。因此 `game.log` 的 `N defines loaded` 只能证明合并发生，不能证明某一具体 mod 文件被应用。是否有任何日志/控制台手段能确定性地检查"某 define 的生效值"，未找到。
+
+## vanilla 核实记录（Pegasus 4.4.6）
+
+> 以下全部行号与计数读自 Pegasus 4.4.6 的安装目录（`launcher-settings.json` = `Pegasus v4.4.6 (fdde)`）。本机同时存在一份更旧的 Lyra 4.1.7 副本，**不作为依据**。
+
+| 结论 | 证据 |
+| --- | --- |
+| **目录是 `common/deposits/`（复数）** | `Test-Path common\deposits` = **True**；`common\deposit` = **False** |
+| **`common/buildable_districts/` 不存在** | `Test-Path` = **False** |
+| 沉积物字段 | `common/deposits/01_orbital_deposits.txt` `d_minerals_1`：`icon`/`resources = { category produces }`/`station`/`is_for_colonizable`/`potential`/`habitat_modifier`/`drop_weight`；`common/deposits/01_planetary_deposits.txt` `d_arid_highlands`：`is_for_colonizable`/`use_for_min_max_adjustments`/`category`/`planet_modifier`/`potential`/`drop_weight`/`use_weights_for_terraforming_swap_types`/`should_swap_deposit_on_terraforming`/`terraforming_swap_types` |
+| 字段出现次数 | `is_for_colonizable =` **561**、`drop_weight =` **432**、`station =` **126**、`habitat_modifier =` **99**、`resources =` **332**、`icon =` **502**（`common/deposits/*.txt`，26 个文件） |
+| **`constant_modifier` 无使用实例** | 仅出现在 `common/deposits/00_null_deposit.txt` 的文件头注释；实际文件中命中 **0** 次；`blocked_modifier` 同样 0 次 |
+| **initializer 无 `spawn_by`** | `common/solar_system_initializers/*.txt` 搜 `spawn_by` 命中 **0** 次 |
+| **`min_distance`/`max_distance` 属于 `spawn_system` 效果** | `common/solar_system_initializers/paragon_initializers.txt:21-27`：`init_effect = { random_system = { spawn_system = { min_distance = 10 max_distance = 30 max_jumps = 0 initializer = "legendary_leader_1st_site" hyperlane = yes is_discovered = yes } } }`；签名见 `logs/script_documentation/effects.log:676` |
+| `usage` 实际取值 | `misc_system_init` **203** 次、`origin` 15、`custom_empire` 10、`fallen_empire_init` 8、`empire_init` 7 |
+| initializer 完整字段 | `common/solar_system_initializers/example.txt`（173 行逐字段注释）：`name`/`class`/`asteroid_belt{type,radius}`/`flags`/`usage`/`usage_odds`/`max_instances`/`spawn_chance`/`scaled_spawn_chance`/`primitive_system`/`prevent_anomalies`/`init_effect`/`planet{...}`/`change_orbit`/`orbital_line`/`neighbor_system{...}`/`mandatory_neighbors` |
+| name_lists 字段 | `common/name_lists/README_NAME_LISTS.txt`（`selectable`/`randomized`/`alias`/`trigger`/`category`/`customize_random_override`/`should_name_home_system_planets`/`ship_names`/`ship_class_names`/`fleet_names`/`army_names`/`planet_names`/`character_names`）；真实例 `common/name_lists/HUM1.txt` |
+| random_names 结构 | `common/random_names/00_empire_names.txt` `empire_name_parts_list = { key = "imperial_gen" parts = { Empire = 4 ... } }`；另有子目录 `common/random_names/base/00_random_names.txt` |
+| planet_classes 字段 | `common/planet_classes/00_planet_classes.txt` 文件头示例 + `pc_gaia`（`district_set = standard`、`modifier`、`spawn_odds`、`min/max_distance_from_sun`、`planet_size`、`colonizable`、`ideal`） |
+| `map/` 真实内容 | `map/galaxy/galaxy_shapes.txt`；`map/setup_scenarios/` 下 `tiny.txt`/`small.txt`/`medium.txt`/`large.txt`/`huge.txt`/`static_galaxy_example.txt`（`Get-ChildItem -Recurse -Depth 1` 全量列出） |
+
+**新增核实（`spawn_system` / 星位 / 星类，全部读自 Pegasus 4.4.6）**：
+
+| 结论 | 证据 |
+| --- | --- |
+| 运算符写在键名里 | `events/first_contact_dlc_events.txt:6499-6504`：`spawn_system = { min_distance >= 30 max_distance <= 75 direction = rimwards initializer = the_chosen_home_initializer hyperlane = no }`（`system_event fircon.3500` 起于 `:6493`） |
+| `spawn_system` 合法作用域无 `country` | `logs/script_documentation/effects.log:676-677`：`Supported Scopes: megastructure planet ship fleet galactic_object starbase no_scope colony` |
+| `no_scope` 注释：位置从银心量起 | `events/distant_stars_events_2.txt:26-27`（distar.290，事件起于 `:15`）与 `events/distant_stars_events_3.txt:1619-1620`：`no_scope = { # makes system positions originate from galactic core` |
+| 批量理由（原版注释） | `events/distant_stars_events_3.txt:1615-1618`、`events/distant_stars_events_2.txt:25-30`：`set_spawn_system_batch = begin` + "batch-processes the spawn_system effects between \"begin\" and \"end\", so caches are recalculated only once rather than for every system spawned" |
+| 隔离靠 `hyperlane = no` | L-Cluster：`events/distant_stars_events_3.txt:1621-1627`（`# spawn l-cluster` / `distar.11000` 在 `:1605-1607`）；The Chosen：`first_contact_dlc_events.txt:6504`。全库 111 个 `spawn_system` 块：`no` 53、`yes` 16、不写 43 |
+| 距离取值超出 0-100 | 全库 200 个 `min_distance`/`max_distance` 出现在 `spawn_system` 内，范围 `0 … 560`；>100 仅 2 处，为 `distant_stars_events_3.txt:1622-1623` 的 `550`/`560` |
+| 引擎报错文案 | `stellaris.exe` 内格式串：`spawn_system: found no possible system for the new system to connect with around `＋`\nSpecify 'hyperlane = no' if no hyperlane connection is needed.`；`spawn_system: Failed to find a position within defined parameters at %s, sending it to the galactic core instead`；`spawn_system: unexpected direction %s (expected 'corewards' or 'rimwards') at %s`；`System `＋` with initializer `＋` is too big. Make sure the outer radius is smaller than `；`Failed to find entity "`＋`_xx_entity" for planet `（`...\source\spatial_objects\planet_class.cpp`） |
+| `change_orbit` 是环世界的做法 | `common/solar_system_initializers/federations_initializers.txt:1935-1964`（`shattered_ring_start` 起于 `:1908`）：`change_orbit = 45`（`:1942`）后每个环段都是 `orbit_distance = 0` + 不同 `orbit_angle` |
+| `orbit_distance` 累加语义 | `common/solar_system_initializers/example.txt:86-87`（"relative to the previous planet's orbit … would put us 110 units from the center"）、`:128-129`（`change_orbit` 是 `planet = { class = none orbit_distance = X }` 的简写） |
+| `change_orbit` / `orbit_distance` 原版量级 | `change_orbit` **681** 处（正 654 / 负 27；最大正 `250` @ `marauder_initializers.txt:1465`，最小负 `-245` @ `custom_starting_initializers.txt:344`）；单条 `orbit_distance` 最大 `360`（`distant_stars_initializers.txt:4382`）——两者都远低于 469 的实测上限 |
+| 星位 entity 原样查找 | `common/planet_classes/00_planet_classes.txt:1148-1149` 写 `entity = "g_star_class_star_entity"`，`gfx/models/planets/_star_entities.asset:66-67` 定义的就是这个名字；行星位则是 `00_planet_classes.txt:1373` 的基名 `ringworld_habitable_entity` 对应 `_planetary_entities.asset:2990-2991` 的 `ringworld_habitable_entity_01_entity` |
+| `fixed_entity_scale` 与查找无关（假设被推翻） | `fixed_entity_scale = yes` 只出现在 `pc_cybrex`、环世界系列、`pc_habitat`、`pc_cosmogenesis_world`（`00_planet_classes.txt:1007/1380/1424/1447/1472/1498/1524/1550/1588/1631`），14 个星类无一使用；Pegasus 4.4.6 实测设置它不改变星位的变体族查找 |
+| 星位可殖民（原版不做） | Pegasus 4.4.6：`star = yes` + `colonizable = yes` 加载无报错且游戏给出殖民选项。原版 14 个 `star = yes` 类全部 `colonizable = no`：`00_planet_classes.txt:1064/1092/1120/1148/1176/1204/1232/1260/1289/1317/1340/1743`、`00_planet_classes_astral_planes_dlc.txt:1`、`06_planet_classes_nomads.txt:110` |
+| 星类惯用字段 | `00_planet_classes.txt:1148-1173`（`pc_g_star`）：`climate = "luminosity_2"`（`:1159`）、`entity_scale = 20.0`、`star = yes`、`min/max_distance_from_sun = 0`、`spawn_odds = 0`、`chance_of_ring = 0`、`planet_size = { min = 20 max = 35 }`、`colonizable = no` |
+| `climate = "luminosity_N"` 是星类标准字段 | 14 个 `star = yes` 类全部带 `climate`：`luminosity_0`（`pc_t_star` `:1272`、`pc_black_hole` `:1300`、`pc_protostar` `06_planet_classes_nomads.txt:121`）、`luminosity_1`（`pc_m_star` `:1216`、`pc_m_giant_star` `:1244`）、`luminosity_2`（`pc_g_star` `:1159`、`pc_k_star` `:1187`、`pc_toxoid_star` `:1754`）、`luminosity_3`（`pc_b_star` `:1075`、`pc_a_star` `:1103`、`pc_f_star` `:1131`、`pc_rift_star` `00_planet_classes_astral_planes_dlc.txt:8`）、`luminosity_4`（`pc_neutron_star` `:1323`、`pc_pulsar` `:1350`）；另有概念 `common/game_concepts/12_nomads_concepts.txt:31`（`concept_star_luminosity`）与 `common/script_values/08_script_values_nomads.txt:677-681`（`has_climate = luminosity_$luminosity$`） |
+| `star_classes` 结构 | `common/star_classes/00_star_classes.txt:4-11`（文件头逐字段注释）与 `:23-40`（`sc_b`：`class = b_star` / `planet = { key = pc_b_star }` / `spawn_odds = 10` / `num_planets = { min = 4 max = 10 }` / 逐行星类 `spawn_odds` 覆盖 / `arkship_picture`） |
+| `usage_odds = 0` 保留脚本专用 initializer | `common/solar_system_initializers/special_system_initializers.txt:2626-2637`（`the_chosen_home_initializer`：`usage = misc_system_init` + `usage_odds = 0`）；全库 `usage_odds = 0` 共 **34** 处 |
+| 地心说彩蛋用近零轨道 | `common/solar_system_initializers/sol_initializers.txt:3659-3676`（`init_sol_geocentric`：`class = "sc_g"` + 地球 `orbit_distance = 0.01`），由 `events/game_start.txt:134-138` 生成；同星系占位后删除条目在 `:3716-3718` / `:3749-3751` / `:3782-3785` / `:3809-3812` |
+| initializer planet 条目附加字段 | `entity` **130** 次（Luna 实例 `distant_stars_initializers.txt:4236`）、`modifiers = none` **133** 次、`deposit_blockers = none` **97** 次、`has_independent_orbital_line` **7** 次（`example.txt:91` 有说明）、`init_effect = { remove_planet = yes }` **6** 次（`sol_initializers.txt:3718/3751/3785/3812`、`00_nomad_custom_initializers.txt:347`、`first_contact_initializers.txt:457`） |
+| `distar` 封星系用的 initializer | `common/solar_system_initializers/distant_stars_initializers.txt:3659`（`distar_sealed_1_1`）与 `:3706`（`distar_sealed_1_2`） |
+| `change_orbit` 是**增量**（能取负） | 全库 **681** 处，其中负值 **27** 处：`custom_starting_initializers.txt:96`（`-210`）、`:344`/`:981`（`-245`）、`empire_initializers.txt:610`、`federations_initializers.txt:757`、`first_contact_initializers.txt:1072`、`distant_stars_initializers.txt:4577`、`00_nomad_custom_initializers.txt:828`；简写定义见 `example.txt:128-129` |
+| 负值只有增量语义才成立 | `federations_initializers.txt:757`（属 `void_dweller_system`，起于 `:609`）：此前几颗行星各写 `orbit_distance = 25`，按绝对语义累计仅 25，`-210` 会得到负半径；按增量语义累计约 263，减 210 回到约 53，后面三颗行星（`:762`/`:774`/`:784` 的 `orbit_distance = 15/15/20`）落回内侧 |
+| **系统外半径上限 469 / 470 越界** | 受控实验（`<mods>\system_size_probe\REPORT.md` §3 run 4，原始日志 `evidence/error.log.run4`）：链 469 PASS、链 470 报 `is too big`；规则 `最外层累计 orbit_distance + 130 < 600` |
+| `130` 的两个来源 define | `common/defines/00_defines.txt:731` `SYSTEM_OUTER_RADIUS_OFFSET = 100`、`:729` `SYSTEM_INNER_RADIUS_OFFSET = 30`；被执行的常量见 `:363` `CELESTIAL_WARNING_COORDINATE_VALUE = 600`（注释原文：*"System size at which you get errors for the system being too big (500 is the normal values, as graphics can glitch with bigger values)"*），`:364` 另注 *"upping limit because certain systems go higher…"* |
+| 带 / `size` / 星系位置都不计入 | 同一实验：链 469 + 半径 **2000** 的岩石带 PASS（run 4）、链 400 + 带 800 PASS、链 100 + 冰带 500 PASS（run 2）；链 450 + `size = 60` 恒星 PASS、链 450 + `size = 60` 气态巨行星 PASS（run 3 与 run 4）；run 4 的 12 个数值探针全在同一个 `min_distance >= 20 / max_distance <= 26` 环带内的 12 个互不重叠楔形中，链 469 复现 4 次、链 468 复现 2 次，全部 PASS、零不一致 |
+| 原版最大链是 435 | `common/solar_system_initializers/special_system_initializers.txt:2390`（`holibrae_initializer`，行星轨道写在 `:2505-2555`）：0/45/80/90/100/120；按 `+130` 得 565 < 600（旧 500 上限则会越界，正对应 `00_defines.txt:364` 的注释） |
+
+**新增核实（银心定位与成对虫洞，全部读自 Pegasus 4.4.6）**：
+
+| 结论 | 证据 |
+| --- | --- |
+| 银心落点靠 `authorize_spawn_on_galactic_core` | `events/astral_rifts_1_events.txt:395-403`（`no_scope` 内 `spawn_system`：`min_distance >= 0` / `max_distance <= 0` / `min_orientation_angle = 0` / `max_orientation_angle = 360` / `initializer = formless_system_initializer` / `hyperlane = no` / `authorize_spawn_on_galactic_core = yes`；事件起于 `:387`）；该字段在全安装仅 **1** 次命中（`:402`） |
+| 银心没有恒星（必须补航道） | `map/galaxy/galaxy_shapes.txt:4`：`num_stars_core_perc = 0				# Number of stars in core`（该文件 10 个银河形状全部是 `0`/`0.0`） |
+| `move_system` 签名 | `logs/script_documentation/effects.log:3466-3468`：`move_system = { target = <system/planet/ship> min_jumps = <value> max_jumps = <value> min_distance = <int 0-100> max_distance = <int 0-100> hyperlane=<yes/no> reset_terra_incognita = <yes/no>}`，Supported Scopes: `galactic_object` |
+| 搬走/搬入后的重连套路 | `events/origin_events_shadows_shroud.txt:122-152`：`move_system`（`:122-130`）之后 `every_neighbor_system_euclidean`（`:131-152`，用 `NOT = { has_hyperlane_to = prev }` 去重）里 `add_hyperlane = { from = prev to = this }`（`:148-151`）；签名见 `effects.log:1911-1913` |
+| `move_system` 的银心兜底分支（实测） | 本机 `logs/error.log`：`[effect_impl_spawn_system.cpp:705]: move_system: Failed to find a position within defined parameters at  file: ... line: 81, sending it to the galactic core instead`；同文件 `effect_impl_spawn_system.cpp:288` 打印 `SPAWN_SYSTEM_BUFFER_DISTANCE = 10` |
+| initializer 里生成成对虫洞 | `common/solar_system_initializers/special_system_initializers.txt:3186-3210`（`the_chosen_gate_initializer` 起于 `:3075`，`flags` 含 `chosen_system` 在 `:3081`）：`random_system` 内两个 `spawn_natural_wormhole`（`:3196`、`:3202`）+ `link_wormholes = prev`（`:3207`）；同模式另见 `events/game_start.txt:1964-1976`、`events/central_crystal_events.txt:74-86`、`events/distant_stars_events_2.txt:119-131` 与 `:8402-8414`、`common/scripted_effects/fallen_empire_scripted_effects.txt:1791-1802`、`nomads_effects.txt:3572-3581`、`00_scripted_effects.txt:7540-7552`；签名 `effects.log:1801-1807` |
+
+**新增核实（超大星系与星系视图相机：文件读自 Pegasus 4.4.6，行为来自本机实机实验）**：
+
+| 结论 | 证据 |
+| --- | --- |
+| **超大星系照样生成（不存在生成上限）** | **实机**：链 **3480** 的星系正常生成并进入；另单独测过链 **1200** 与链 **2000**，均生成。`is too big` 只在 `error.log` 留一行警告，星系与全部天体都在 |
+| 视图截断的现象 | **实机**：超大星系里 3D 天体正常绘制，但轨道线与边界 / 重力井圆环在上下两端被截断；平移可把它们拉回视野 |
+| `interface/` 里 `clipping = yes` 的全量枚举 | 本机扫描：**177** 个 `.gui`，`clipping = yes` 共 **229** 行，其中 **1** 行被注释掉（`interface/espionage_operation_view.gui`）→ **生效 228 处 / 80 个文件**（放宽空格的正则 `/clipping\s*=\s*yes/g` 会数到 230） |
+| `galaxy_view.gui` 只有 2 处裁剪，且都是左侧面板 | `interface/galaxy_view.gui:54`（`containerWindowType = { name = "species_box" }`，起于 `:50`）、`:587`（`containerWindowType = { name = "detailed_diplomacy_window" }`，起于 `:582`）；文件共 3488 行 |
+| `mapicons.gui` 无裁剪 | `interface/mapicons.gui`（1181 行）`clipping = yes` **0** 处 |
+| 没有任何 `.gui` 引用星系视图绘制 | 全库 177 个 `.gui` 搜 `orbit_line` / `orbitline` / `gravity_well` / `system_view` / `systemview`：**0 文件命中**，星系视图直接画到屏幕 |
+| 候选机制（未被证实） | `common/defines/00_defines.txt:4` `SYSTEM_FAR_PLANE_DISTANCE_BASE = 12000.0`、`:45` `ZOOM_STEPS_SYSTEM_PERCENTAGES = { 0.025 0.1 0.25 0.5 1.0 1.5 3.0 }`（`:44` 是被注释掉的旧值 `0.01 … 3.0`）、`:68` `SYSTEM_CAMERA_RESTRICT_EXTRA_SPACE = 100.0` |
+| **改这三个 define 没能解决问题（实机，已失败）** | 测试 mod `geocentric_view_test`（内容仍在 `<mods>\geocentric_view_test`，覆盖文件 `common/defines/zz_geocentric_view_defines.txt`，测试后已停用）：`SYSTEM_FAR_PLANE_DISTANCE_BASE` 12000 → **60000**、`ZOOM_STEPS_SYSTEM_PERCENTAGES` 改成 20 档且最深两档 3.5 → **6.0** / 4.0 → **8.0**、`SYSTEM_CAMERA_RESTRICT_EXTRA_SPACE` 100 → **4000**、`ENTER_SYSTEM_ZOOM_STEP` 6 → 19（进星系即最远）。结果：**轨道覆盖层仍被截断**。**关键细节**：同时安装的 IBS mod 确实也改 `ZOOM_STEPS_SYSTEM_PERCENTAGES`（20 档、最大 4.0）与 `SYSTEM_CAMERA_RESTRICT_EXTRA_SPACE`（50.0），**但不碰远平面**——也就是说"远平面 12000 → 60000"这一项**没有被抢**，它生效了却依然截断，说明远平面大概率不是那个界限；而缩放档 / 相机空间到底哪个文件赢，引擎**不写日志**，无法判定 |
+| 未排除的两种解释 | ① 界限由**共享键**（缩放档 / `SYSTEM_CAMERA_RESTRICT_EXTRA_SPACE`）决定，而这两个键被 IBS 抢走或合并顺序不为我所知；② 界限**硬编码在引擎里**，这些 define 不参与。**整条标 待确认**，不要当成已解 |
+| define 合并本身是"合并"而非"替换" | 该 mod 生效时 `logs/game.log:2` 仍报 `[defines.cpp:162]: 2113 defines loaded`（`:3` 另有 `[defines.cpp:196]: 253 interface defines loaded`），与 vanilla 计数一致，说明 mod 侧是**逐个键合并**进 vanilla 块，不是整块替换；但计数只能证明"合并发生过"，不能证明"某个具体键用了谁的值" |
+| 未知 define 键被静默忽略 | 本机测试：写入一个不存在的 define 键，值无任何效果，`game.log` / `error.log` 均无记录 |
+| 同键冲突无日志 | 两个 mod 重定义同一个 define 键时，引擎不写任何"谁赢"的记录；唯一可靠判据是一个玩家肉眼可见的值（该 mod 把 `ENTER_SYSTEM_ZOOM_STEP` 设成 19 正是为此准备的可见标志） |
+
+**被推翻的假设**：`common/deposit/`（单数）、`common/buildable_districts/`、initializer 的 `spawn_by` / `min_distance` / `max_distance` —— 四者在 Pegasus 4.4.6 中均**不存在**；另有实测推翻的一条：`fixed_entity_scale` **不会**改变恒星槽位的实体变体族查找。
+
+## 参考
+
+- [System modding](https://stellaris.paradoxwikis.com/System_modding)
+- [Planet Generation modding（行星特征与轨道资源点）](https://stellaris.paradoxwikis.com/Planet_Generation_modding)
+- [Map modding（内容偏旧，务必与本机文件对照）](https://stellaris.paradoxwikis.com/Map_modding)
+- 游戏自带（权威）：
+  - `common/solar_system_initializers/example.txt`（逐字段注释）
+  - `common/name_lists/README_NAME_LISTS.txt`（name_lists 完整字段）
+  - `common/planet_classes/00_planet_classes.txt`（文件头示例、12 个 `star = yes` 星类）、`00_planet_classes_astral_planes_dlc.txt`、`06_planet_classes_nomads.txt`（另 2 个）
+  - `common/star_classes/00_star_classes.txt`（文件头逐字段注释）
+  - `common/deposits/01_orbital_deposits.txt`、`common/deposits/01_planetary_deposits.txt`（文件头字段说明）
+  - `common/solar_system_initializers/federations_initializers.txt`（`shattered_ring_start` 环世界写法）、`sol_initializers.txt`（`init_sol_geocentric`）
+  - `common/defines/00_defines.txt`（`CELESTIAL_WARNING_COORDINATE_VALUE`、`SYSTEM_OUTER_RADIUS_OFFSET`、`SYSTEM_INNER_RADIUS_OFFSET`）
+  - `gfx/models/planets/_planetary_entities.asset`、`gfx/models/planets/_star_entities.asset`（实体名真相）
+  - `events/first_contact_dlc_events.txt`（The Chosen）、`events/distant_stars_events_2.txt`、`events/distant_stars_events_3.txt`（distar.290 与 L-Cluster）
+  - `map/galaxy/galaxy_shapes.txt`、`map/setup_scenarios/static_galaxy_example.txt`
+- 受控实验记录（本机，Pegasus 4.4.6）：`<mods>\system_size_probe\REPORT.md` 与同目录 `evidence/error.log.run1..run4`、`game.log.run1..run4`（系统外半径上限 469/470）
+- `logs/script_documentation/effects.log`（`spawn_system` 与 `set_spawn_system_batch` 签名）
+- `stellaris.exe` 内嵌报错格式串（引擎自身，用于确认报错原文）
+- `%USERPROFILE%\Documents\Paradox Interactive\Stellaris\logs\error.log`（`effect_impl_spawn_system.cpp:288` 的 `SPAWN_SYSTEM_BUFFER_DISTANCE = 10` 报错原文与 `:705` 的"搬到银心"兜底，均为实测日志）
+

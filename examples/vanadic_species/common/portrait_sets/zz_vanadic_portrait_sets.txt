@@ -1,0 +1,48 @@
+# ------------------------------------------------------------------------------------
+# Portrait set for the `vanadic` species class.
+#
+# Verified against Stellaris 4.1.7:
+#   common/portrait_sets/00_portrait_sets.txt is where a species class gets its
+#   portraits. Species classes do NOT take `custom_portraits` in 4.1.7
+#   (0 occurrences across common/species_classes/*.txt) - that is obsolete advice.
+#   Portrait names are already reused across vanilla sets (mam13, rep12, avi1 ... each
+#   appear in two sets), so reusing shipped portraits here is safe.
+#   Every name below resolves to a shipped portrait definition:
+#     art3/art7/art12/art19 -> gfx/portraits/portraits/04_portraits_arthropoid.txt
+#     mol5/mol13            -> gfx/portraits/portraits/06_portraits_molluscoid.txt
+#     lith1..lith5          -> gfx/portraits/portraits/14_portraits_lithoid.txt
+#
+# The arthropoid and molluscoid portraits are base-game and unconditional. Lithoid
+# portraits are gated behind the Lithoids Species Pack in vanilla, so the same
+# `has_lithoids` condition is mirrored here: owners of the pack get the metallic
+# mineral portraits as well, everyone else still gets a working selection.
+# ------------------------------------------------------------------------------------
+
+vanadic_portraits = {
+	species_class = vanadic
+
+	portraits = {
+		"art3"
+		"art7"
+		"art12"
+		"art19"
+		"mol5"
+		"mol13"
+	}
+
+	conditional_portraits = {
+		randomizable = {
+			has_lithoids = yes
+		}
+		playable = {
+			has_lithoids = yes
+		}
+		portraits = {
+			"lith1"
+			"lith2"
+			"lith3"
+			"lith4"
+			"lith5"
+		}
+	}
+}

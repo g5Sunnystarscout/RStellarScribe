@@ -1,0 +1,44 @@
+# ------------------------------------------------------------------------------------
+# 建造陆军 / Muster Armies - the carrier's own button.
+#
+# Field manual: common/scripted_actions/99_README_SCRIPTED_ACTIONS.txt
+#   "Example of a scripted action, to be enabled by a ship component via the
+#    scripted_action field"
+#   user_scope and scope MUST be the first two parameters.
+#   For scope = fleet: scope is the target fleet, from is the triggering user.
+#   `on_completed` names an on_action to run when the action finishes.
+#
+# The button is enabled by the MUSTERING_PLATFORM component's `scripted_action` field, so a
+# carrier only gets the button once its mustering platform is fitted.
+# ------------------------------------------------------------------------------------
+
+aerospace_carrier_muster_army = {
+	user_scope = fleet
+	scope = self
+
+	possible = {
+		always = yes
+	}
+
+	finished = {
+		always = yes
+	}
+
+	button_visible = {
+		always = yes
+	}
+
+	button_clickable = {
+		always = yes
+	}
+
+	on_completed = on_aerospace_carrier_muster_army
+
+	context_menu_name = aerospace_carrier_muster_army
+	tooltip = aerospace_carrier_muster_army_tooltip
+	icon = GFX_fleet_action_button_arkship_harvest_resources
+	icon_selected = GFX_fleet_action_button_arkship_harvest_resources
+
+	required_progress = 2.0
+	cooldown = 30
+}

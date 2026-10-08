@@ -1,0 +1,16 @@
+# ------------------------------------------------------------------------------------
+# Empire-creator category for the `vanadic` species class.
+#
+# Verified against Stellaris 4.1.7 common/portrait_categories/00_portrait_categories.txt:
+#   <category_key> = { name = <species class key>  sets = { <portrait set keys> } }
+# `name` resolves as a localisation key, so it points at the `vanadic` entry that
+# localisation/<language>/vanadic_l_<language>.yml defines.
+# ------------------------------------------------------------------------------------
+
+vanadic_category = {
+	name = vanadic
+
+	sets = {
+		vanadic_portraits
+	}
+}

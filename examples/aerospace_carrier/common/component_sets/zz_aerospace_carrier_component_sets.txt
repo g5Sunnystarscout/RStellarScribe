@@ -1,0 +1,8 @@
+# Upgrade/auto-design group for the muster platform component. Aux components each get
+# their own set in vanilla (REACTOR_BOOSTER_1 declares `component_set = "REACTOR_BOOSTER_1"`);
+# this file just registers the key and the icon used in the designer.
+component_set = {
+	key = "MUSTERING_PLATFORM"
+	icon = "GFX_ship_part_aura_bombardment"
+	icon_frame = 1
+}

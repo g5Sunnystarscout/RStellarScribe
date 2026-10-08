@@ -1,0 +1,313 @@
+---
+id: situations
+category: content
+title: Situations
+title_zh: 局势
+file_types: [common/situations/*.txt]
+tags: [stages, approach, monthly_progress, on_monthly, start_situation, destroy_situation, total_progress, section_weight, situation_log_category, progress_direction]
+related: [events, scripted-effects-triggers, localisation-basics]
+sources: [https://stellaris.paradoxwikis.com/Modding, https://stellaris.paradoxwikis.com/Situation_modding]
+verified_version: "Pegasus 4.4.6 实机文件核对"
+---
+## 概要
+
+局势（situation）是 3.0 引入的「长期进程」系统：一个有**目标**、一条 **0→100 进度条**、若干**阶段**、若干**应对方式（approach）**、**每月事件**、一或两个**结局**的长线故事。权威文档是游戏自带的 `common/situations/99_README_SITUATIONS.txt`（322 行，**必须整读**）。目录内共 **20 个文件**（含 README），其中 `13_extreme_frontiers_situations.txt`（90 行）是最小的真实样本。
+
+关键结论（本次核对推翻的假设）：
+
+1. **启动效果的准确签名是 `start_situation = { type = <situation_type> target = <scope> }`，作用域 country**（`effects.log:2367-2369` 原文即此三行）。**不是 `begin_event_chain`** —— 后者（`effects.log:734`）管的是**局势日志事件链**，与本系统无关。
+2. **README 第 23 行「`target = { }` in script will not work」是有前提的**：它接在「If no target is set, the UI will indicate your empire」之后，指的是**没有目标的局势**不能 `target = { }`。**有目标时 `target = { }` 完全可用** —— 实测 `common/situations/*.txt` 里 `target = {`（独占一行）出现 **62 次**、`owner = {` 出现 **659 次**。
+
+## 文件位置与命名
+
+- `common/situations/*.txt`：覆盖类型 **DUPL/NO**（整文件替换）。新局势请新开文件（如 `zz_my_situations.txt`）。
+- 顶层键即局势 id（如 `situation_toxify_world`、`situation_planetary_revolt`）。**`situation_planetary_revolt` 被硬编码引用**（`02_strategic_situations.txt:2` 注释 `# Referenced in code - Do not change key`），自定义局势不要碰它。
+- `situation_log_category` 的取值是**裸标识符**（无引号），实测共 6 种：`developments`(28)、`empire_concerns`(24)、`urgent_matters`(20)、`crises`(5)、`ambitions`(3)、`astral_rifts`(3)。对应本地化键在 `localisation/english/main_2_l_english.yml:926-937`（`developments: "Developments"` 等）。
+
+## 语法与字段
+
+顶层字段（括号内为 `common/situations/*.txt` 实测出现次数）：
+
+- `desc`（`desc =` 命中 **534**，但**只有 18 次是 `desc = { }` 块形式**，其余 516 次是 `monthly_progress`/修正里的 `desc = <loc_key>` 单值，**勿混淆**）：块形式**可重复多次**，写成 `desc = { trigger = { ... } text = <loc_key> }`（**`trigger` 单数**；全目录 `triggers =` 命中 0 次）。不写 `desc` 时默认取 `<key>_desc`。见 `02_strategic_situations.txt:7-65`。
+- `picture`(132，支持 triggered picture)；`category`(133；实测 `neutral`24 / `positive`23 / `negative`18，影响 UI 色调)；`situation_log_category`(83，裸标识符)。
+- `complete_icon`(85) / `complete_icon_frame`(83) / `fail_icon`(23) / `fail_icon_frame`(23)：进度条右端（完成）与左端（失败）图标。
+- `custom_tooltip`(565) / `custom_tooltip_with_modifiers`(6)：前者替换自身修正描述，后者前置。
+- `override_finisher_title`(1) / `override_finisher_desc`(1)：仅 `14_nomads_situations.txt:959-960` 使用。另发现 README **未记录**的 `override_progress_current_desc`(1，`14_nomads_situations.txt:961`)。`override_active_title` / `override_active_desc` **19 个局势文件命中 0 次**，唯二命中都在 README 注释内（`:49-50`、`:235-236`）。
+- `on_start`(37) / `on_progress_complete`(88) / `on_fail`(29) / `on_abort`(34)：生命周期效果。README 第 56、59 行强调 **`on_progress_complete` 与 `on_fail` 里必须调用 `destroy_situation = this`**（或由此处触发的事件调用）。
+- `abort_trigger`(64)：触发后走 `on_abort`（例 `13_extreme_frontiers_situations.txt:76-81`）。`potential`(211)：**作用域是 country**（README 第 63 行），不满足则移除且**不触发 `on_abort`**。
+- `permanent = yes/no`(2，均 `yes`，`14_nomads_situations.txt:14,980`)：为 yes 时到端点不自动结束，须手动完结。`show_in_outliner`(1，`:981` 的 `no`)。
+- `modifier`(836) / `triggered_modifier`(146)：作用于**经历该局势的国家**。`triggered_modifier = { potential = { } modifier = { } }`。
+- `target_modifier`(30) / `triggered_target_modifier`(8)：作用于**目标殖民船载体**，README 第 79 行明确**只对该类型有效**。
+- `triggered_blocked_desc = { trigger = { } text = "" }`(26)：局势被阻塞时的告警（`08_machine_age_situations.txt:293`）。
+进度条字段：
+
+- `start_value = 0`(1，`13_infernal_situations.txt:510`)：进度下限。`initial_progress`(65)：起始值，**双向局势关键**；小于 `start_value` 会被抬到 `start_value`。
+- `progress_direction = monodirectional/bidirectional`(7，默认 `monodirectional`；`bidirectional` 实例 `01_narrative_situations.txt:152`)。
+- `complete_category = negative`(1) / `fail_category = positive`(1，`01_toxoid_situations.txt:14-15`)：**仅双向局势有效**，分别影响右端与左端色调。
+- `stages = { ... }`(91)：至少一个。阶段子字段：`icon`、`icon_background`(505)、`color`(4)、`end`、`section_weight`(4)、`on_first_enter`(161)、`on_enter`(5)、`modifier`/`triggered_modifier`/`target_modifier`/`triggered_target_modifier`、`custom_tooltip`、`custom_tooltip_with_modifiers`。
+- `monthly_progress`(90)：`base = N` 加标准 weight 块 `modifier = { add = N desc = <loc_key> <triggers> }`；README 第 162 行警告 **`desc` 对应本地化键必须存在**（实例 `02_strategic_situations.txt:370-380`）。
+- `total_progress`(1，`14_nomads_situations.txt:954`) 与 `section_weight`(4) 是**互斥模式**：
+  - 默认模式（FIXED ENDS）：每个阶段写 `end`，完成值 = 末阶段 `end`。
+  - `total_progress` 模式（SECTION WEIGHTS）：每个阶段**必须**写 `section_weight`，**一个都不能写 `end`**（README 第 116 行：混用会记日志错误）。阶段切片 = 权重 / 权重和 × 有效总长。
+  - `total_progress` 可以是脚本值：`14_nomads_situations.txt:954-957` 用 `{ base = 0 add = owner.value:nomad_max_operational_reserves }`。
+  - `section_weight` 也可以是权重块：`:1043-1054` 用 `{ base = 50 modifier = { owner? = { ... } factor = 1.5 } }`。
+  - 该模式下自动生成两个国家修正：`<situation_key>_max_progress_add`（平加）与 `<situation_key>_max_progress_mult`（百分比），有效总长 = `(total_progress + add) * (1 + mult)`，下限 1。需提供 `mod_<situation_key>_max_progress_add` / `..._mult` 本地化键，实例 `nomads_2_l_english.yml:501-502`。
+
+`approach`(246) 成员：
+
+- `name`(248，与 stage 合计)：**本地化键**，可另加 `<name>_desc`。`icon` / `icon_background`：图标资源。
+- `allow = { }`(71)：失败则**置灰**。`potential = { }`：失败则**不显示**。
+- `on_select = { }`：被选中时执行效果，可含 `custom_tooltip`（`13_extreme_frontiers_situations.txt:48-50`）。
+- `default = yes`(77)：局势启动时默认选中，当前 approach 失效时自动回退（**被 lock 时不回退**，故要求玩家选 approach 的事件应在 `immediate` 或 `on_start` 里 `set_situation_locked = yes`，选择后再解锁）。
+- `modifier`/`triggered_modifier`/`target_modifier`/`triggered_target_modifier`：仅在选中该 approach 时生效。
+- `resources = { category = situations cost/upkeep/produces = { } }`(70 处 `resources`，其中 `category = situations` **67 次**)：标准资源表。实例：`upkeep = { sr_dark_matter = 1 rare_crystals = 2 }`（`13_extreme_frontiers_situations.txt:54-57`）、`cost = { unity = 1000 }`（`:70-72`）、`produces` 内还可带 `trigger`（`01_narrative_situations.txt:104-109`）。
+- `ai_weight = { }`(106)：AI 选权重最高者。
+
+作用域（README `:22`）：`this` / `root` = **局势本身**（situation）；`owner` = 国家（`scopes.log:87` 确认支持，输出 country）；`target` = 目标（`scopes.log:7` 确认支持，输出 "various"，具体类型取决于局势目标）。迭代用 `every_situation` / `any_situation` / `random_situation` / `ordered_situation`（作用域 country，`effects.log:5793-5815`）；针对当前殖民船载体的 `any_targeting_situation` / `random_targeting_situation`（`triggers.log:4577`）。
+
+相关效果与触发器的**准确签名**（出自 `script_documentation/effects.log` 与 `triggers.log`，位于 `%USERPROFILE%\Documents\Paradox Interactive\Stellaris\logs\`，随 Pegasus v4.4.6 生成）：
+
+| 名称 | 原文签名 | 作用域 | 行号 |
+|---|---|---|---|
+| `start_situation` | `start_situation = { type = <situation_type> target = <scope> }` | country | effects.log:2367 |
+| `destroy_situation` | `destroy_situation = <event target>` | all | effects.log:2441 |
+| `abort_situation` | `abort_situation = <event target>`（会触发 `on_abort`） | all | effects.log:2445 |
+| `add_situation_progress` | `add_situation_progress = 5.5` | situation | effects.log:2449 |
+| `set_situation_progress` | `set_situation_progress = 5.5` | situation | effects.log:2453 |
+| `set_situation_approach` | `set_situation_approach = <approach>` | situation | effects.log:2457 |
+| `set_situation_locked` | `set_situation_locked = yes/no` | situation | effects.log:2461 |
+| `change_situation_target` | `change_situation_target = none/scope` | situation | effects.log:2465 |
+| `situation_event` | `situation_event = { id = <id> days = x random = y scopes = { } }` | situation | effects.log:3573 |
+| `set_situation_flag` | `set_situation_flag = <key>` | situation | effects.log:159 |
+| `current_stage` | `current_stage = <stage>`（触发器） | situation | triggers.log:607 |
+| `has_situation_flag` | `has_situation_flag = <flag>`（触发器） | situation | triggers.log:984 |
+| `situation_progress_percent` | `situation_progress_percent >= 33` | situation | triggers.log:1584 |
+| `is_situation_type` | `is_situation_type = my_situation_type` | situation | triggers.log:1593 |
+| `current_situation_approach` | `current_situation_approach = <approach>` | situation | triggers.log:1597 |
+
+**本地化键清单**（README 第 28–33 行明确要求）：
+
+- `<key>`：局势存在时的名称，**可用 `[Target.GetName]`** 等作用域命令。例 `situation_planetary_revolt:0 "Planetary Revolt on [Target.GetName]"`。
+- `<key>_type`：局势尚不存在时使用（**`start_situation` 效果的 tooltip 走这个键**，此处 `[Target.GetName]` 之类**不可用**）。
+- `<key>_desc`：默认描述（被 `desc = { }` 覆盖时改用 `text` 指定的键）。
+- `<key>_monthly_change_tooltip`：玩家如何影响进度，悬停月度变化值时显示（实测 99 个）。
+- 每个**阶段键必须本地化**；可选 `<stage_key>_desc`（README 第 133 行）。
+- `total_progress` 模式额外需 `mod_<key>_max_progress_add` 与 `mod_<key>_max_progress_mult`。
+- 另有 `<key>_complete_tooltip` / `<key>_fail_tooltip`（`unrest_l_english.yml:13-15`），README 未列；approach 的 `name` 需本地化，可选 `<name>_desc`。
+
+```pdx
+# common/situations/zz_my_situations.txt
+# 最小可加载局势：目标是一个殖民地（殖民船载体）
+situation_mycelial_bloom = {
+	desc = {
+		trigger = { owner = { is_gestalt = no } }
+		text = situation_mycelial_bloom_desc_standard
+	}
+
+	picture = GFX_evt_alien_nature
+	category = negative
+	situation_log_category = developments
+
+	fail_icon = GFX_situation_outcome_negative
+	fail_icon_frame = GFX_situation_outcome_frame_green
+	complete_icon = GFX_situation_outcome_positive
+	complete_icon_frame = GFX_situation_outcome_frame_red
+
+	# potential 的作用域是 country：不满足则移除，且不触发 on_abort
+	potential = {
+		has_technology = tech_mycelial_study
+	}
+
+	initial_progress = 0
+	progress_direction = monodirectional
+
+	on_start = {
+		set_situation_locked = no
+	}
+
+	on_progress_complete = {
+		custom_tooltip = situation_mycelial_bloom_outcome
+		owner = { country_event = { id = mycelial.10 } }
+		# README 强制要求：必须销毁，否则局势不会消失
+		destroy_situation = this
+	}
+
+	on_fail = {
+		owner = { country_event = { id = mycelial.20 } }
+		destroy_situation = this
+	}
+
+	on_abort = {
+		target = { remove_carrier_flag = mycelial_bloom }
+	}
+
+	abort_trigger = {
+		OR = {
+			NOT = { exists = target.space_owner }
+			target.space_owner = { NOT = { is_same_value = root.owner } }
+		}
+	}
+
+	stages = {
+		mycelial_stage_1 = {
+			icon = GFX_situation_stage_1
+			icon_background = GFX_situation_stage_frame_blue
+			end = 40
+			custom_tooltip = situation_mycelial_bloom_stage_1_effects
+		}
+		mycelial_stage_2 = {
+			icon = GFX_situation_stage_2
+			icon_background = GFX_situation_stage_frame_orange
+			end = 100
+			modifier = { planet_stability_add = -5 }
+			on_first_enter = {
+				owner = { country_event = { id = mycelial.5 } }
+			}
+		}
+	}
+
+	monthly_progress = {
+		base = 1
+		modifier = {
+			add = 2
+			desc = mycelial_bloom_progress_fast
+			target = { NOT = { has_building = building_mycelial_filter } }
+		}
+	}
+
+	on_monthly = {
+		random_events = {
+			100 = 0
+			30 = mycelial.1
+			15 = mycelial.2
+		}
+	}
+
+	approach = {
+		name = approach_mycelial_quarantine
+		icon = GFX_situation_approach_maintenance
+		icon_background = GFX_situation_approach_bg_yellow
+		default = yes
+		on_select = {
+			custom_tooltip = approach_mycelial_quarantine_tt
+		}
+		resources = {
+			category = situations
+			upkeep = { energy = 5 }
+		}
+	}
+
+	approach = {
+		name = approach_mycelial_burn
+		icon = GFX_situation_approach_military
+		icon_background = GFX_situation_approach_bg_red
+		allow = {
+			owner = { has_technology = tech_mycelial_burn }
+		}
+		potential = {
+			owner = { NOT = { has_country_flag = mycelial_truce } }
+		}
+		on_select = {
+			custom_tooltip = approach_mycelial_burn_tt
+			add_situation_progress = 25
+		}
+		resources = {
+			category = situations
+			cost = { unity = 500 }
+		}
+		modifier = { planet_stability_add = -10 }
+	}
+}
+```
+
+启动它（在 decision / event 的 `effect` 里，作用域必须是 **country**）：
+
+```pdx
+# common/decisions/zz_my_decisions.txt
+decision_mycelial_containment = {
+	potential = { has_technology = tech_mycelial_study }
+	effect = {
+		space_owner = {
+			start_situation = {
+				type = situation_mycelial_bloom
+				target = root
+			}
+		}
+	}
+}
+```
+
+它需要的**最小本地化键集**：
+
+```yml
+l_simp_chinese:
+ # 四件套（README 第 28 行要求）
+ situation_mycelial_bloom:0 "菌丝侵染 [Target.GetName]"
+ situation_mycelial_bloom_type:0 "菌丝侵染"
+ situation_mycelial_bloom_desc_standard:0 "§Y[Target.GetName]§! 上出现了不受控的菌丝蔓延。"
+ situation_mycelial_bloom_monthly_change_tooltip:0 "建造菌丝滤器可减缓蔓延。"
+
+ # 阶段键必须本地化，必须全局唯一，_desc 可选
+ mycelial_stage_1:0 "初现"
+ mycelial_stage_1_desc:0 "菌丝刚刚附着于地表。"
+ mycelial_stage_2:0 "蔓延"
+ mycelial_stage_2_desc:0 "菌丝已覆盖大片区域，稳定度下降。"
+
+ # 结局与阶段自定义 tooltip
+ situation_mycelial_bloom_outcome:0 "菌丝被彻底压制，殖民地恢复安宁。"
+ situation_mycelial_bloom_stage_1_effects:0 "每月推进菌丝蔓延。"
+ mycelial_bloom_progress_fast:0 "缺少菌丝滤器，蔓延加速。"
+
+ # approach 的 name 与其可选 _desc
+ approach_mycelial_quarantine:0 "隔离"
+ approach_mycelial_quarantine_desc:0 "维持封锁，等待菌丝自然衰减。"
+ approach_mycelial_quarantine_tt:0 "每月消耗 £energy£ §Y5§! 能量币。"
+ approach_mycelial_burn:0 "焚烧"
+ approach_mycelial_burn_desc:0 "直接烧毁受污染区域。"
+ approach_mycelial_burn_tt:0 "立即推进 §Y25§! 点进度，但殖民地稳定度下降。"
+```
+
+若改用 `total_progress` 模式，只需把上例的 `stages` 换成下列写法（**不能再写 `end`**）：
+
+```pdx
+	total_progress = { base = 100 add = owner.value:mycelial_scale }	# 脚本值也合法
+	stages = {
+		mycelial_stage_1 = { icon = GFX_situation_stage_1 icon_background = GFX_situation_stage_frame_blue section_weight = 25 }
+		mycelial_stage_2 = { icon = GFX_situation_stage_2 icon_background = GFX_situation_stage_frame_orange section_weight = 75 }
+	}
+```
+
+## 校验要点
+
+1. **`on_progress_complete` 与 `on_fail` 里必须有 `destroy_situation = this`**（可改为由事件销毁；README `:56`、`:59` 列为强制）。
+2. **`total_progress` 与 `end` 不能混用**：设了 `total_progress` 后每个阶段只能写 `section_weight`，反之只能用 `end`。用 `Select-String '^\s*(end|section_weight)\s*='` 核对。
+3. **阶段图标字段是 `icon_background`，不是 README `:135` 的 `background`**（实测 `icon_background` 505 次、独立 `background` 0 次）；**阶段键必须本地化且必须全局唯一** —— vanilla 的 `stage_1:1 "Stage I"` 是**全局单条键**（`situations_l_english.yml:70`），复用它就会覆盖原版。
+4. `desc` 块内子字段是 **`trigger`**（单数）；`monthly_progress` 的 `modifier` 若写了 `desc`，该本地化键必须存在，否则刷错误日志。
+5. `situation_log_category` 用**裸标识符**且必须是 6 个已知值之一；局势顶层键**不能叫 `on_monthly_pulse`**（`on_monthly` 实为按局势 id 注册的 on_action）。`start_situation` 作用域必须是 **country**（`effects.log:2369`），写在行星作用域里无效。
+6. 影响局势本身的效果应放进事件的 `immediate = { }`（README `:209-211`）。
+
+## 常见错误
+
+- **以为要用 `begin_event_chain` 启动局势**：它（`effects.log:734`）管的是局势日志事件链，与本系统无关。正确入口是 `start_situation = { type = ... target = ... }`。
+- **`on_progress_complete` 里忘记 `destroy_situation = this`**：局势永久卡在日志里（`permanent = yes` 时才是故意的）。
+- **把 `potential` 当作用域 situation 写**：它的作用域是 **country**（README 第 63 行），写 `current_stage = ...` 无效；阶段内判断应放进 `triggered_modifier` 的 `potential`（`01_narrative_situations.txt:48`）。
+- **`target_modifier` 用在非殖民船载体的目标上**：README 第 79 行明确「Does not work on other scope types!」；**以为无目标局势也能 `target = { }`** 亦错（有目标时该写法完全正常，实测 62 次）。
+- **以为 `category` 是布尔**：它只接受 `positive`/`negative`/`neutral`。**自定义局势 id 撞上 `situation_planetary_revolt`**：该键被代码硬引用。
+
+## 待确认
+
+- README 第 135 行的 `background` 与第 273 行的 `icon_background` 矛盾（实测全用后者）；**`background` 是否仍被接受但已废弃，未取证**。
+- `override_active_title` / `override_active_desc`（README `:49-50`）在 19 个局势文件中命中 **0 次**，无从证实其行为。
+- README **未记录**但实测存在的 `override_progress_current_desc`（`14_nomads_situations.txt:961`）作用未取证；`<key>_complete_tooltip` / `<key>_fail_tooltip`（`unrest_l_english.yml:13-15`）README 未列，是否强制未取证。
+- `total_progress` 模式下「混用 `end` 与 `section_weight` 会报错」出自 README 第 116 行，**未实测复现该日志错误**。
+- `situation_log_category` 是否允许自定义新值未取证。
+- `desc` 块内除 `trigger` 与 `text` 外是否支持更多字段未取证。
+
+## 参考
+
+- 权威文档：`common/situations/99_README_SITUATIONS.txt`（322 行，游戏内自带）
+- 效果与触发器签名：`%USERPROFILE%/Documents/Paradox Interactive/Stellaris/logs/script_documentation/effects.log`、`triggers.log`、`scopes.log`（随 Pegasus v4.4.6 生成）
+- 最小实例：`common/situations/13_extreme_frontiers_situations.txt`
+- 进阶实例：`14_nomads_situations.txt`（`total_progress` + `section_weight` + `permanent` + `show_in_outliner`）、`02_strategic_situations.txt`（多 `desc` 分支 + 完整 approach）
+- 本地化样本：`localisation/english/unrest_l_english.yml`、`localisation/english/extreme_frontiers_l_english.yml`、`localisation/english/nomads_2_l_english.yml`
+- [Stellaris Wiki: Modding](https://stellaris.paradoxwikis.com/Modding)

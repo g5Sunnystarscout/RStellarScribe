@@ -1,0 +1,124 @@
+---
+id: on-actions
+category: script
+title: On Actions
+title_zh: On Action 事件注册表
+file_types: [common/on_actions/*.txt]
+tags: [events, pulse, random_events, scope, fire_on_action]
+related: [scripted-effects-triggers, custom-tooltips, ai-weights]
+sources: [https://stellaris.paradoxwikis.com/On_actions, https://stellaris.paradoxwikis.com/Event_modding]
+verified_version: "本机正式版 4.1.7 (Lyra) 实际文件核对；wiki 清单页标注 3.7"
+---
+
+## 概要
+
+`on_action` 是"游戏发生某件事时自动触发一组事件"的注册表，写在 `common/on_actions/*.txt`。每个 `on_action` 块**只有两个合法子键**：`events = { ... }` 和 `random_events = { ... }`（本机 4.1.7 `common/on_actions/00_on_actions.txt` 里 308 个 `events`、74 个 `random_events`，没有第三种键）。语义差别是关键：`events` 里**每一个**通过 trigger 的事件都会触发；`random_events` 里先剔除 trigger 为假的事件，再按权重**只抽一个**。注册到 on_action 的事件必须标 `is_triggered_only = yes`（否则它同时还在被每日轮询，性能与行为都会失控）。
+
+## 文件位置与命名
+
+- 本体：`common/on_actions/00_on_actions.txt`、`01_planet_destruction.txt`、`02_component_on_actions.txt`、`99_README_ON_ACTIONS.txt`（含官方说明与示例，先读它）。
+- mod 应新建**唯一命名**的文件（如 `zz_my_mod_on_actions.txt`）追加事件，而不是覆盖本体文件；同名 on_action 块会被合并。
+- 加载顺序：同一 on_action 内按列出顺序触发；跨文件按文件名 **ASCII 序**（本体 wiki 与 `99_README` 均如此表述），事件 ID 本身不影响顺序。所以想让事件更晚触发，用 `zz_` 前缀并对同类事件排序。
+
+## 语法与字段
+
+两种注册方式及其权重语义：
+
+```pdx
+# common/on_actions/zz_my_mod_on_actions.txt
+on_game_start = {
+	events = {
+		my_mod_game_start.1   # 一定触发（trigger 通过时）
+	}
+}
+
+on_yearly_pulse_country = {
+	events = {
+		my_mod_pulse.1
+	}
+	random_events = {
+		200 = 0               # 权重 200：本次什么都不触发
+		10 = my_mod_pulse.10
+		10 = my_mod_pulse.11
+	}
+}
+```
+
+`random_events` 里 `权重 = 事件ID`，`0` 表示"空事件"；**不支持权重重修饰符**，需要按条件改变被抽中概率时，把 `weight_multiplier` 写在**事件内部**：
+
+```pdx
+country_event = {
+	id = my_mod_pulse.10
+	is_triggered_only = yes
+	weight_multiplier = {
+		factor = 1
+		modifier = {
+			factor = 3
+			has_technology = tech_my_mod_marker
+		}
+	}
+	immediate = { set_country_flag = my_mod_pulse_fired }
+}
+```
+
+常用 on_action 与作用域族（均出自本机 4.1.7 `00_on_actions.txt`；完整清单请直接 grep 该文件的顶层键，见"校验要点"）：
+
+- 全局、无固定作用域：`on_game_start`、`on_game_start_country`、`on_single_player_save_game_load`。
+- 全局脉冲：`on_monthly_pulse`、`on_yearly_pulse`、`on_bi_yearly_pulse`、`on_five_year_pulse`、`on_decade_pulse`、`on_mid_game_pulse`、`on_late_game_pulse`（无作用域，直接触发全部注册事件）。
+- 国家族脉冲：`on_monthly_pulse_country`、`on_yearly_pulse_country`、`on_bi_yearly_pulse_country`、`on_five_year_pulse_country`、`on_decade_pulse_country`、`on_mid_game_pulse_country`、`on_late_game_pulse_country`（`this = country`；**只有 `country_types` 中 `has_pulse_events = yes` 的国家会收到**，堕落/觉醒帝国默认排除）。
+- 星球族脉冲：`on_colony_yearly_pulse`、`on_colony_5_year_pulse`、`on_colony_10_year_pulse`，以及 `on_colony_1_year_old` … `on_colony_10_years_old`、`on_colony_25_years_old`。
+- 殖民：`on_colonization_started`（`scope = planet`）、`on_colonized`（`scope = planet`）、`on_colony_destroyed`（清除 owner 前调用，`scope = planet`）。
+- 人口族：`on_pop_added`、`on_pop_grown`、`on_pop_assembled`、`on_pop_purged`、`on_pop_declined`、`on_pop_displaced`、`on_pop_enslaved`、`on_pop_emancipated`、`on_pop_resettled`、`on_pop_abducted`。
+- 舰队/舰船族：`on_ship_destroyed_victim` / `on_ship_destroyed_perp`、`on_fleet_destroyed_victim` / `on_fleet_destroyed_perp`、`on_ship_disabled`、`on_ship_enabled`、`on_starbase_destroyed`、`on_space_battle_won` / `on_space_battle_lost`、`on_entering_battle`。
+- 星系与占领：`on_system_occupied`、`on_system_controller_changed`、`on_system_returned`、`on_system_gained` / `on_system_lost`、`on_planet_transfer`、`on_planet_conquer`、`on_planet_ownerless`。
+- 其它高频：`on_first_contact`、`on_first_contact_finished`、`on_entering_system`、`on_entering_system_first_time`、`on_entering_system_fleet`、`on_survey`、`on_planet_surveyed`、`on_entering_war`、`on_country_created`、`on_country_destroyed`、`on_leader_spawned`、`on_relic_activated`、`on_tradition_picked`、`on_ascension_perk_picked`、`on_megastructure_built`、`on_operation_finished`、`on_debris_researched`、`on_country_attacked`。
+
+作用域要按本体注释逐条查（`this` / `from` / `fromfrom` / `fromfromfrom` 的含义各不同）。例如：
+
+- `on_system_occupied`：`this` = 被占领星系，`from` = 征服者，`fromfrom` = 原主。
+- `on_ship_destroyed_victim`：`this` = 被毁舰船所属国，`from` = 交战对方国，`fromfrom` = 被毁舰船，`fromfromfrom` = 对方舰船。
+- `on_colonized` / `on_colonization_started` / `on_colony_destroyed`：仅 `scope = planet`。
+- `on_planet_attackers_win`：`this` = 攻方领袖国，`from` = 星球属国，`fromfrom` = 星球。
+
+自定义 on_action：先在任意 on_actions 文件里像内置项一样定义 `my_mod_custom_action = { events = { ... } }`，再用效果触发，作用域由 `scopes` 指定（本体 `00_scripted_effects.txt` 中 `fire_on_action` 的用法，3.0+）：
+
+```pdx
+my_mod_trigger_custom = {
+	fire_on_action = {
+		on_action = my_mod_custom_action
+		scopes = { from = event_target:crisis_country }
+	}
+}
+```
+
+该块**没有** `delay` / `days` / `random` / `chance_to_fire` 字段：要在 on_action 的触发与事件真正执行之间加延迟，请在事件调用侧写 `country_event = { id = X days = 30 random = 30 }`，或直接在事件内部延迟，不要在 on_action 块里写。
+
+## 校验要点
+
+- 自查完整清单：直接列出本体文件的所有顶层键，不要凭记忆写。PowerShell：`Select-String -Path "<Stellaris>\common\on_actions\*.txt" -Pattern '^[a-z_0-9]+\s*=\s*\{' | ForEach-Object { $_.Line.Trim() }`。写 mod 前跑一次，把清单与自己的键名逐一比对（拼错键名不会报错，只会静默不触发）。
+- 被注册的事件必须 `is_triggered_only = yes`；`random_events` 的目标必须是事件 ID，不能写脚本化效果名。
+- `random_events` 权重必须为正整数/0；`0 = 事件ID` 是错误写法，空事件要写 `权重 = 0`。
+- 星球/星系/星港/领袖/人口事件建议配 `pre_triggers`，先做廉价筛选再做完整 trigger。
+- 想调"触发概率"时改事件里的 `weight_multiplier`，而不是在 on_action 里加权重修饰符。
+- 追加事件到本体已有的 on_action 时，不要整块覆盖本体文件；用独立命名文件追加。
+
+## 常见错误
+
+- 在 `random_events` 里写 `chance_to_fire = { ... }` 包裹层：本机 4.1.7 的 `stellaris.exe` 中不存在该字符串，本体 on_actions 也从不使用，写了不生效。
+- 把事件写进 `events` 却指望它"按权重随机触发"（`events` 是全触发）。
+- 忘记 `has_pulse_events = yes` 的限制，导致堕落帝国/自定义 `country_type` 收不到 `*_pulse_country`。
+- 依赖事件 ID 的先后顺序，实际顺序由文件 ASCII 序与块内顺序决定。
+- 在 `events`/`random_events` 之外写别的键（如自造 `trigger = { }`），不会生效也没有提示。
+
+## 待确认
+
+- 完整 on_action 清单随版本持续变动（wiki 清单页最后核对为 3.7，本机为 4.1.7，多出大量 DLC/4.x 条目）。以本机文件为准，不要照抄 wiki 表格。
+- 跨文件同名 on_action 的合并顺序：wiki 与 `99_README_ON_ACTIONS.txt` 都说是 ASCII 序，但本机未做增删实测来验证。
+- `on_game_start` 与 `on_game_start_country` 之外，4.x 是否有新增的"开局"钩子（如 `on_initialize_advanced_colony` 之外的初始化项）未逐一比对。
+
+## 参考
+
+- [On actions（含完整清单与作用域注释）](https://stellaris.paradoxwikis.com/On_actions)
+- [Event modding（is_triggered_only / pre_triggers / 延迟调用）](https://stellaris.paradoxwikis.com/Event_modding)
+- 本机 `Stellaris/common/on_actions/99_README_ON_ACTIONS.txt`（引擎自带说明，4.1.7）
+- [cwtools-stellaris-config: config/common/on_actions.cwt](https://github.com/cwtools/cwtools-stellaris-config/blob/master/config/common/on_actions.cwt)

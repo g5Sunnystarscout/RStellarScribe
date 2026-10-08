@@ -1,0 +1,46 @@
+# ------------------------------------------------------------------------------------
+# `start_tech = yes` is the vanilla way to mark a technology as already researched when the
+# game begins - see common/technology/00_biogenesis_tech.txt:10-19 (`tech_maulers`) and
+# common/technology/00_eng_tech.txt:23-45 (`tech_corvettes`, a start tech with NO
+# prerequisites - a start tech does not need any, so this one has none either).
+#
+# ICON: the field is a bare sprite name, not a path - vanilla writes e.g.
+# `icon = "tech_archeology_lab"` (00_ancient_relics_tech.txt:48). Without it the engine looks
+# for the file named after the tech key and logs "Failed to find icon for technology".
+# `inherit_icon` is NOT a tech field; it only exists inside `technology_swap` blocks.
+#
+# TOOLTIP: `prereqfor_desc` supplies the "unlocks ..." lines. The `component` line for the
+# muster platform appears by itself (the engine scans components for a matching
+# `prerequisites`), but the ship-type line did not appear from the `ship` section alone, so
+# the same text is ALSO declared under `custom`, which is the most common section in vanilla
+# (102 occurrences) and the one `tech_juggernaut` uses for its free-form unlock text. Both
+# sections are kept: `ship` is semantically right, `custom` guarantees the line renders.
+# ------------------------------------------------------------------------------------
+
+tech_aerospace_carrier = {
+	area = engineering
+	category = { voidcraft }
+	tier = 2
+	cost = 2000
+	weight = 100
+
+	icon = "tech_cruisers"
+
+	# Already researched from turn one, so the ship can be built immediately for testing.
+	start_tech = yes
+
+	potential = {
+		always = yes
+	}
+
+	prereqfor_desc = {
+		ship = {
+			title = "TECH_UNLOCK_AEROSPACE_CARRIER_TITLE"
+			desc = "TECH_UNLOCK_AEROSPACE_CARRIER_DESC"
+		}
+		custom = {
+			title = "TECH_UNLOCK_AEROSPACE_CARRIER_SHIP_TITLE"
+			desc = "TECH_UNLOCK_AEROSPACE_CARRIER_SHIP_DESC"
+		}
+	}
+}

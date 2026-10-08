@@ -1,0 +1,79 @@
+# ------------------------------------------------------------------------------------
+# Effects behind the hand-written button bar injected into the vanilla fleet view
+# (interface/fleet_view.gui). These are REAL UI buttons: no event, no custom window - the
+# button is part of the fleet view the engine builds, and clicking it runs the script here.
+#
+# Scope, from common/button_effects/example.txt:
+#   This = selected object (here: the selected fleet)
+#   From = player country
+# Hence the fleet-scope checks below, and `every_owned_ship` (the iterator vanilla uses;
+# `every_ship` does not exist) to reach the carrier inside the fleet.
+# ------------------------------------------------------------------------------------
+
+aerospace_carrier_fleet_button_muster = {
+	potential = {
+		is_scope_type = fleet
+	}
+	allow = {
+		any_owned_ship = {
+			is_ship_size = aerospace_carrier
+		}
+		custom_tooltip = {
+			fail_text = AEROSPACE_CARRIER_FAIL_NOT_CARRIER
+			any_owned_ship = {
+				is_ship_size = aerospace_carrier
+			}
+		}
+	}
+
+	effect = {
+		every_owned_ship = {
+			limit = {
+				is_ship_size = aerospace_carrier
+			}
+			create_army = {
+				name = "aerospace_carrier_mustered_army"
+				owner = from
+				species = from
+				type = assault_army
+			}
+		}
+	}
+}
+
+aerospace_carrier_fleet_button_bombardment = {
+	potential = {
+		is_scope_type = fleet
+	}
+	allow = {
+		any_owned_ship = {
+			is_ship_size = aerospace_carrier
+		}
+		from = {
+			custom_tooltip = {
+				fail_text = AEROSPACE_CARRIER_FAIL_ENERGY
+				resource_stockpile_compare = {
+					resource = energy
+					value >= 100
+				}
+			}
+		}
+	}
+
+	effect = {
+		from = {
+			add_resource = {
+				energy = -100
+			}
+		}
+		every_owned_ship = {
+			limit = {
+				is_ship_size = aerospace_carrier
+			}
+			add_modifier = {
+				modifier = aerospace_carrier_bombardment_ready
+				days = 365
+			}
+		}
+	}
+}

@@ -1,0 +1,243 @@
+---
+id: ship-abilities-and-gui
+category: content
+title: Ship Abilities and Custom Ship GUIs
+title_zh: 舰船专属能力与自定义舰船 GUI
+file_types: [common/ship_abilities/*.txt, common/component_templates/*.txt, interface/*.gui]
+tags: [ship_ability, juggernaut, ark, gui, button, fleet_view]
+related: [ship-sizes, ship-components, interface-gui]
+sources: [https://stellaris.paradoxwikis.com/Ship_modding]
+verified_version: "Pegasus 4.4.6 实机文件核对"
+---
+
+## 概要
+
+先给结论：**Pegasus v4.4.6 **没有** `common/ship_abilities/` 这个目录**（`Test-Path` 返回 `False`，全安装递归 grep `ship_abilities` 命中 0 次，`stellaris.exe` 内 ASCII 字符串命中 0 次）。"给舰种加一个能力/按钮"在本体里不是一个数据文件概念，而是三条互不相同的通路：
+
+1. **`common/scripted_actions/` + 舰种 `scripted_action` 字段**——**唯一官方、完全模组友好、无需改 GUI** 的自定义舰队按钮系统。这是"模组舰船拥有自己按钮"的正解。
+2. **`common/button_effects/` + `interface/fleet_view.gui` 里的 `effectbuttonType`**——按钮点击后执行脚本效果，模组可用，但必须整体覆盖 `fleet_view.gui`，且本体全游戏只用 2 次。
+3. **主宰/方舟舰的"造船"按钮**——**不是能力系统，是舰种 `class` 的副作用**。主宰靠 `class = shipclass_starbase` + `construction_type = starbase_shipyard` 复用恒星基地造船 UI；方舟舰的 `arkship_build_armies` / `arkship_build_ships` **只存在于 `stellaris.exe` 里**，模组舰种无法复制。
+
+所以对「空天母舰」这个真实需求：**用 `common/scripted_actions/` 做"建造陆军"按钮（可行且干净）；轨道轰炸靠军用舰自带的轰炸指令 + `ship_orbital_bombardment_mult` 修正（无需特殊字段）；正常太空作战只需常规军用舰种定义**。
+
+## 文件位置与命名
+
+| 路径 | 本体状态（4.4.6 实测） | 作用 |
+|---|---|---|
+| `common/ship_abilities/` | **不存在**（`Test-Path = False`；全安装 *.txt grep 0 命中） | 旧版遗留概念，本版本无对应加载器 |
+| `common/button_effects/*.txt` | 2 个文件：`behemoth_effects.txt`（111 行）、`example.txt`（34 行） | 按钮点击效果。**`example.txt` 是官方自带的 modder 示例** |
+| `common/scripted_actions/*.txt` | 6 个文件：`00_paragons.txt`、`01_biogenesis_crisis.txt`、`02_paladins.txt`、`03_arkships.txt`(1900 行)、`04_dyson_gun.txt`、`99_README_SCRIPTED_ACTIONS.txt`(231 行，字段手册) | 舰船/巨型结构动作按钮 |
+| `common/on_actions/02_component_on_actions.txt` | 承载 scripted_action 的 `on_completed` 等回调 | 回调必须指向已注册 on_action |
+| `interface/fleet_view.gui` | `effectbuttonType` 全游戏**仅 2 处**：`:708`、`:1785` | 唯一可挂 `effect =` 的 GUI 元素 |
+| `interface/planet_view.gui` | `arkship_side_view`(`:179`)、`arkship_build_armies`(`:776`)、`arkship_build_ships`(`:786`) | 方舟舰专属界面（借用行星视图） |
+
+顶层键证据：
+
+- `common/button_effects/behemoth_effects.txt:3` → `grow_up_button_effect = {`；`example.txt:18` → `example_button_effect = {`。文件内**没有任何 wrapper**（不是 `button_effects = { ... }`），就是裸的 `<key> = { potential ... allow ... effect }`。
+- `common/scripted_actions/03_arkships.txt` 顶层键共 17 个：`arkship_explore`、`arkship_build_megastructure`、`arkship_survey`、`arkship_deep_scan`、`arkship_harvest_resources`、`arkship_strip_mine`、`arkship_empty_spine`、`arkship_subspace_image`、`arkship_reprocess_planet`、`arkship_stellar_ignition`、`arkship_exodus_jump`、`arkship_settle`、`arkship_lithoid_consume_world`、`arkship_nanotech_consume_world`、`arkship_drop_off_prisoners`，加 `03_arkships.txt:1558/1696/1819` 的 `logistic_harvest_resources` / `collect_waystation_stockpile` / `logistic_drop_off_stockpile`。
+
+## 语法与字段
+
+### A. 主宰：它不是能力，是"会走路的恒星基地"
+
+`common/ship_sizes/18_juggernauts.txt`（整块 72 行）关键三行：
+
+- `:52` `class = shipclass_starbase`
+- `:53` `construction_type = starbase_shipyard`
+- `:8-11` `modifier = { ship_evasion_add = @juggernaut_evasion }` 加 `:10` `starbase_shipyard_capacity_add = 10`
+
+`starbase_shipyard_capacity_add` 全本体只出现 3 类来源：巨型船坞（`11_mega_shipyard.txt:214/276/339/440`，值 5/10/20/20）、主宰（`18_juggernauts.txt:10`，值 10）、恒星基地/轨道环模块（`00_starbase_modules.txt:54/58/661` 等，值 1）。含义是**并行造船槽位**。主宰的 `potential_construction`（`:31-33`）/ `possible_construction`（`:35-37`）把建造入口限定到恒星基地与巨型船坞（脚本在 `common/scripted_triggers/07_scripted_triggers_ships.txt:1087`）。所以主宰"边打边造船"= 被当成有机动力的船坞，**完全复用恒星基地造船界面，零自定义按钮**。全本体 `component_templates/*.txt` 中 `ship_ability` 命中 **0 次**，wiki 上传说中的该组件字段在本版本**不存在**。
+
+### B. 方舟舰：真实键名与不可复制性
+
+真实键名（`common/ship_sizes/29_nomads_dlc_ships.txt`）：`civilian_arkship_tier_1/2/3`(`:104/225/354`)、`science_arkship_tier_1/2/3`(`:486/610/741`)、`military_arkship_tier_1/2/3`(`:875/998/1128`)、`military_arkship_champions_forge`(`:1261`)、`nomads_constructor`(`:1346`)、`nomads_engineer_vessel`(`:1454`)。中文名证据：`localisation/simp_chinese/nomads_1_l_simp_chinese.yml:2183` → `arkship_cap: "方舟"`，`:2196` → `civilian_arkship_class: "民用"`，`:2199` → `civilian_arkship_tier_1: "$civilian_arkship_name$ I"`。所以 4.4.6 的「方舟舰」= **arkship**（诺玛德 DLC 的移动方舟），别名"方舟舰"。
+
+它凭什么有自定义界面？两行：
+
+```pdx
+# common/ship_sizes/29_nomads_dlc_ships.txt:113-114
+class = shipclass_starbase          # Needs to be a Starbase to have starbase modules and buildings.
+carries_colony = pc_ark             # Enables Arkship custom UI.
+```
+
+`:184` `is_designable = no`，`:109-112` `hero_ship = { hero_ship_fleet_background = "GFX_arkship_fleetview_civilian" custom_class_text_color = H }`。`carries_colony = pc_ark` 的官方注释见 `common/ship_sizes/00_ship_sizes.txt:97-99`（"If filled, ship is able to carry a colony of that class… The ship size must also have `class = shipclass_starbase`"）。
+
+而那两个按钮：
+
+```pdx
+# interface/planet_view.gui:776-794  —— 只有 name，没有 effect
+buttonType = {
+    name = "arkship_build_armies"
+    size = { x = 125 y = 32 }
+    position = { x = 18 y = 52 }
+    quadTextureSprite = "GFX_tiling_button_standard_seethrough"
+    buttonFont = "cg_16b"
+    clicksound = "tab_click"
+    text = "Assault Armies"
+}
+buttonType = {
+    name = "arkship_build_ships"
+    size = { x = 125 y = 32 }
+    position = { x = 160 y = 52 }
+    quadTextureSprite = "GFX_tiling_button_standard_seethrough"
+    buttonFont = "cg_16b"
+    clicksound = "tab_click"
+    text = "Shipyard"
+}
+```
+
+**这两个名字在 `stellaris.exe` 里各有 1 次命中**（同文件 `grow_button_effect` 也是 1 次，而 `grow_up_button_effect` 是 0 次——证明 exe **只认按钮 name，不认 `effect` 目标**）。全 gui 文件里 `effect =` 只出现 2 次，就是 `grow_button_effect` 那两处；`arkship_*` 按钮**没有 `effect` 字段**，行为 100% 由 exe 硬编码。舰队视图里还有一个同类硬编码按钮：`fleet_view.gui:511-515` `go_to_planet_view` 配 `GFX_button_open_arkship`（sprite 在 `interface/planet_view.gfx:4480-4487`），同样靠 exe 里的名字跳转。
+
+### C. 唯一有 `effect =` 的 GUI 元素
+
+```pdx
+# interface/fleet_view.gui:708-722（另一份完全相同的在 :1785-1799，用于观察他人的舰队）
+effectbuttonType = {
+    name = "grow_button_effect"
+    position = { x = 79 y = 28 }
+    size = { x = 120 y = 20 }
+    quadTextureSprite = GFX_tiling_button_standard
+    font = "cg_16b"
+    buttonText = "GROW_UP"
+    tooltipText = "GROWTH_BUTTON_DESC"
+    delayedTooltipText = "GROWTH_BUTTON_DESC_DELAYED"
+    effect = grow_up_button_effect
+    clicksound = "ui_kaiju_grow_up"
+}
+```
+
+`effect` 指向的 `grow_up_button_effect` 定义在 `common/button_effects/behemoth_effects.txt:3-111`，结构（`example.txt:2-5` 官方注释）为：
+
+```pdx
+my_button_effect = {
+    potential = { is_scope_type = fleet }   # This = 当前选中对象；From = 玩家国家
+    allow = { }                             # 置灰条件，失败用 fail_text 的 custom_tooltip 说明
+    effect = { }                            # 点击后执行
+}
+```
+
+### D. 推荐的模组方案：scripted_action（最小可工作片段）
+
+`common/scripted_actions/99_README_SCRIPTED_ACTIONS.txt:1-120` 是字段手册。`user_scope` 必须是第一个参数、`scope` 必须第二个（`:4-9`）。按钮的可见/可点由 `button_visible` / `button_clickable` 决定（`:29-31`），点击后走 `on_completed` / `on_started` / `on_queued` / `on_cancelled` 指向的 on_action（`:33-40`）：
+
+```pdx
+# common/scripted_actions/zz_my_mod_carrier.txt
+my_carrier_build_army = {
+	user_scope = fleet
+	scope = self
+
+	button_visible = {
+		any_owned_ship = { is_ship_size = my_mod_space_carrier }
+	}
+	button_clickable = {
+		owner = { is_at_war = yes }
+	}
+
+	tooltip = my_carrier_build_army_tooltip
+	icon = GFX_fleet_task_planetfall_action
+	icon_selected = GFX_fleet_task_planetfall_selected
+	on_click_sound = "tab_click"
+
+	cooldown = 90                     # README:95，单位天，默认 0
+	cost = { alloys = 100 }           # README:97，完成时从控制国扣
+	required_progress = 2.0           # README:91-92，最低 2.0 才不是瞬间完成
+
+	on_completed = on_my_carrier_army_built
+}
+```
+
+```pdx
+# common/on_actions/zz_my_mod_on_actions.txt
+on_my_carrier_army_built = {
+	every_owned_ship = {
+		limit = {
+			is_ship_size = my_mod_space_carrier
+			solar_system = { any_system_planet = { is_colonized = yes } }
+		}
+		owner = {
+			create_army = {                    # 语法实证：common/scripted_effects/00_scripted_effects.txt:7730-7734
+				name = "NAME_My_Carrier_Legion"
+				owner = root.owner
+				type = assault_army            # 类型来自 common/armies/01_assault_armies.txt
+			}
+		}
+	}
+}
+```
+
+```pdx
+# common/ship_sizes/zz_my_mod_ship_sizes.txt（片段，只列与本文相关字段）
+my_mod_space_carrier = {
+	class = shipclass_military        # 军用舰 => 自动获得轨道轰炸指令与正常太空作战
+	construction_type = starbase_shipyard
+	section_slots = { "mid" = { locator = "part1" } }
+	is_designable = yes
+	enable_default_design = yes
+	scripted_action = { my_carrier_build_army }   # 关键：按钮在舰队视图自动渲染
+}
+```
+
+```pdx
+# common/component_templates/zz_my_mod_components.txt
+utility_component_template = {
+	key = "MY_MOD_MUSTER_PLATFORM"     # 「集结平台」
+	size = aux
+	icon = "GFX_ship_part_eater_covenant_aux"
+	icon_frame = 1
+	power = -20
+	resources = { category = ship_components cost = { alloys = 20 } }
+	ship_modifier = {
+		ship_orbital_bombardment_mult = 0.2   # 真实用法：00_utilities_aux.txt:390 的 EATER_MARK
+	}
+}
+```
+
+按钮为何不用写 GUI：`interface/fleet_view.gui:1112-1117` 有一个空的 `gridBoxType { name = "actions" }`，其单元格模板是 `:2126-2135` 的 `fleet_view_action_button`——**运行期由 exe 按舰种 `scripted_action` 列表填充**，所以新按钮零 GUI 改动。本体实证：`common/ship_sizes/29_nomads_dlc_ships.txt:1348-1352`、`:1456`。
+
+### E. 轨道轰炸：靠舰种 class，不靠专用字段
+
+全 `common/ship_sizes/*.txt` grep `bombard` **0 命中**——舰种层没有 `is_bombardment_ship`、也没有 `bombardment_stance` 这类字段。轰炸是**军用舰队自带的指令**，强度由修正与姿态决定：
+
+- 姿态数据：`common/bombardment_stances/00_bombardment_stances.txt`，14 个顶层键（`:31 selective`、`:71 indiscriminate`、`:120 armageddon`、`:179 pox`、`:239 raiding`、`:315 seed_bombing`、`:356/401/441 voidworm_invasion*`、`:454 behemoth_invasion`、`:483 firestorm`、`:522 seismic_bombing`、`:554 plundering`）。字段手册就在同文件 `:1-29` 的注释里：`trigger`（`root = fleet`）、`default`、`stop_when_armies_dead`、`stop_when_ground_combat`、`abduct_pops`、`planet_damage`、`army_damage`、`kill_pop_chance`、`min_pops_to_kill_pop`、`kill_pop_amount`、`ai_weight`。
+- 伤害修正：**正确键名是 `ship_orbital_bombardment_mult`**（不是 `ship_bombardment_damage_mult`）。本地化实证：`localisation/english/modifiers_1_l_english.yml:454-457`、中文 `localisation/simp_chinese/modifiers_1_l_simp_chinese.yml:443-446`（"轨道轰炸伤害"）。
+- 真实用例（组件）：`common/component_templates/00_utilities_aux.txt:390-392`（`key = "EATER_MARK"`，`ship_modifier = { ship_orbital_bombardment_mult = 0.2 ship_accuracy_add = 5 }`）；角色组件同族值见 `00_utilities_roles.txt:557/601/648/706/750`（0.50/0.65/0.80/0.80/0.80）。
+- 全局数值在 `common/defines/00_defines.txt:1038-1051`（`ORBITAL_BOMBARDMENT_PLANET_SIZE_FACTOR`、`ORBITAL_BOMBARDMENT_PLANET_DMG_SCALE`、`ORBITAL_BOMBARDMENT_ARMY_DMG_SCALE` 等）。
+
+## 校验要点
+
+1. **先证伪目录**：`Test-Path "$ST/common/ship_abilities"` 必须为 `False`；递归 `Select-String ship_abilities` 必须 0 命中。任何"在 `ship_abilities/` 里写 X"的教程对本版本都是错的。
+2. **按钮名核对 exe**：用 ASCII 读出 `stellaris.exe` 全部字符串。`grow_button_effect`/`arkship_build_armies`/`arkship_build_ships` 各 1 次，`grow_up_button_effect` 0 次——**exe 只认按钮 name，不认 `effect` 目标**。这是判断"某按钮能不能自己造"的唯一可靠方法。
+3. **`effectbuttonType` 只能用在 exe 已经实例化它的窗口**。全本体只有 `fleet_view.gui:708`/`:1785` 两处；在别处（如 `ship_view.gui`、`planet_view.gui`）新增一个 `effectbuttonType` 不会生效。
+4. **scripted_action 回调必须是真 on_action**：`on_completed = on_xxx` 的 `on_xxx` 必须能在 `common/on_actions/*.txt` 里找到。本体实证：`00_paragons.txt:13` 的 `on_completed = on_beholder_target_planet_reached` ↔ `02_component_on_actions.txt:12`。
+5. **`carries_colony` 需要 `class = shipclass_starbase`**（`00_ship_sizes.txt:97-99` 原注释），否则方舟/殖民逻辑不成立。
+6. **`create_army` 的作用域**：从 `owner = { ... }` 内调用时 `owner = root.owner` 会指错（此国非彼国）。最稳的写法是先取目标的 owner：`owner = { create_army = { owner = prev.owner ... } }`，或改用 `root.owner = { create_army = { owner = root.owner ... } }`。改完必须进游戏实点按钮验证，不要只看 `error.log` 不报错。
+7. **本地化键大小写不敏感但必须存在**：`tooltip` / `activity_key` / `context_menu_name` / `icon` 四个键缺一个按钮可能不显示或显示为空。
+
+## 常见错误
+
+- **去找 `common/ship_abilities/`**：4.4.6 没有；不会被报错，只是完全不生效。
+- **以为主宰有"造船按钮"**：`18_juggernauts.txt` 里没有任何 GUI/按钮字段，造船能力来自 `class = shipclass_starbase` + `construction_type = starbase_shipyard`，界面是恒星基地造船界面的复用。
+- **想复制方舟舰按钮**：那几个名字都是 exe 硬编码，且**没有 `effect` 字段**；给模组舰种写同名 `buttonType` 不会让它干活（`buttonType` 的动作全部硬编码）。
+- **在 `planet_view.gui` 里加 `effectbuttonType`**：该文件里 0 处 `effectbuttonType`，exe 不会在那里创建这类元素。
+- **用 `ship_bombardment_damage_mult`**：此键不存在，正确的是 `ship_orbital_bombardment_mult`。
+- **给舰种写 `is_bombardment_ship = yes` / `bombardment_stance = ...`**：`common/ship_sizes/*.txt` 里 grep `bombard` 为 0，写进去最多进 `error.log`。
+- **只替换 `common/button_effects/` 而不改 GUI**：新效果没有任何按钮会引用它。反之只改 `fleet_view.gui` 的 `effect` 而不定义对应条目，点击无效。
+- **忽略 `common/button_effects/example.txt`**：官方语法样板（`:2-15` 直接给了 `effectbuttonType` 用法注释），比 wiki 新。
+
+## 待确认
+
+- **模组能否"新增"而非"替换" `fleet_view.gui` 里的 `effectbuttonType`**：本体只有 2 个节点，且 name 与 exe 硬编码名一一对应。验证法：最小 mod 在该文件 `actions` `gridBoxType` 附近加第三个 `effectbuttonType`（新 `name`、`effect = my_effect`），进游戏看同级位置是否出现。**未验证前一律走 `scripted_action` 路线**。
+- **是否有 GUI 整体覆盖 vs 逐元素 patch 的机制**：本版本未见 patch 语法；stub 覆盖是常规做法，故任何 `fleet_view.gui` 改动都会与其它 UI mod 冲突。
+- **舰种级 `scripted_action` 与组件级的行为差异**：README `:95-98` 只说明字段语义，未说明两者的优先级/叠加规则；`99_README_SCRIPTED_ACTIONS.txt:1` 的"via the scripted_action field"指组件侧，舰种侧实证只有 `29_nomads_dlc_ships.txt:1348/1456`。
+- **方舟舰界面是否严格要求 `carries_colony`**：`29_nomads_dlc_ships.txt:114` 注释写 `carries_colony = pc_ark  # Enables Arkship custom UI.`，但 `hero_ship`、`planet_view_header`、`arkship_picture` 与它的依赖关系未逐条验证。
+- **`pc_ark` 之外的 planet_class 能否复现方舟界面**：未验证；若任意 `carries_colony` 都能开界面，"模组舰种拿到方舟式界面"就多一条路。
+
+## 参考
+
+- 本体字段手册（优先级高于 wiki）：`common/scripted_actions/99_README_SCRIPTED_ACTIONS.txt`（231 行）
+- 本体按钮效果样例：`common/button_effects/example.txt`（含 `effectbuttonType` 用法注释）
+- 舰种官方注释块：`common/ship_sizes/00_ship_sizes.txt:1-132`
+- 舰种制作指南：`common/HOW_TO_MAKE_NEW_SHIPS.txt`（95 行）
+- [Ship modding - Stellaris Wiki](https://stellaris.paradoxwikis.com/Ship_modding)（注意：该页标注停留在 3.0，其中 Juggernaut 示例的 `starbase_shipyard_capacity_add = 2`、`combat_size_multiplier = 5`、`size_multiplier = 32` 与 4.4.6 实际值（10 / 100 / 100）不一致，以本机文件为准）
+- [Interface modding - Stellaris Wiki](https://stellaris.paradoxwikis.com/Interface_modding)（`effectButtonType` 条目：可绑定 `/common/button_effects/` 的 effect；并指出 `buttonType` 的动作"all hardcoded"）
+- [Bombardment Stance modding - Stellaris Wiki](https://stellaris.paradoxwikis.com/Bombardment_Stance_modding)

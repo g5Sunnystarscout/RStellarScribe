@@ -1,0 +1,9 @@
+# Static modifier applied to the carrier by the bridge window's bombardment button.
+# Static modifier blocks are plain `<key> = { <modifier keys> }` (see
+# common/static_modifiers/00_static_modifiers.txt), and ship-scope keys such as
+# ship_weapon_damage / ship_armor_add are used in them by vanilla, so a ship-scope
+# bombardment bonus is valid here.
+aerospace_carrier_bombardment_ready = {
+	ship_orbital_bombardment_mult = 0.5
+	ship_orbital_bombardment_army_damage_mult = 0.25
+}

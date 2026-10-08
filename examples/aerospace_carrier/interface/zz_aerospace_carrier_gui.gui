@@ -1,0 +1,142 @@
+# ------------------------------------------------------------------------------------
+# Aerospace Carrier bridge - a hand-written GUI.
+#
+# The engine instantiates these containers when an event names them:
+#     custom_gui = "aerospace_carrier_bridge_window"
+#     custom_gui_option = "aerospace_carrier_bridge_option"
+# Vanilla does the same with the enclave windows (interface/diplomacy_champions
+# forge_event_view.gui, referenced from events/nomads_events_1.txt:2291).
+#
+# Three structural rules learned from the vanilla files, none of which are documented:
+#   1. The file's root is `guiTypes = { ... }` - a bare containerWindowType at the top level
+#      is a parse error.
+#   2. The option row is its own container whose button is literally named `option_button`
+#      with `text = "OPTION_TEXT"`; the engine binds the event's options to it. The window
+#      itself does not need an "options" container.
+#   3. Only `effectbuttonType` can carry `effect =`, and that effect names an entry in
+#      common/button_effects/ (see common/button_effects/example.txt).
+#
+# Every sprite and font below is a vanilla one, so nothing has to be drawn:
+#   GFX_tile_large_bg, GFX_tiling_button_standard, GFX_button_close
+#   malgun_goth_24 (headings), cg_16b (body and buttons)
+# ------------------------------------------------------------------------------------
+
+guiTypes = {
+
+	containerWindowType = {
+		name = "aerospace_carrier_bridge_window"
+		orientation = center
+		origo = center
+		moveable = yes
+		size = { width = 720 height = 470 }
+
+		background = {
+			name = "background"
+			quadTextureSprite = "GFX_tile_large_bg"
+		}
+
+		iconType = {
+			name = "hex_bg"
+			spriteType = "GFX_tiling_button_standard"
+			position = { x = 6 y = 6 }
+			alwaysTransparent = yes
+		}
+
+		instantTextBoxType = {
+			name = "heading"
+			font = "malgun_goth_24"
+			text = "AEROSPACE_CARRIER_BRIDGE_TITLE"
+			position = { x = 24 y = 14 }
+			maxWidth = 620
+			maxHeight = 30
+			fixedSize = yes
+			alwaysTransparent = yes
+		}
+
+		instantTextBoxType = {
+			name = "body"
+			font = "cg_16b"
+			text = "AEROSPACE_CARRIER_BRIDGE_DESC"
+			position = { x = 24 y = 58 }
+			maxWidth = 660
+			maxHeight = 110
+			fixedSize = yes
+			alwaysTransparent = yes
+		}
+
+		# --- hand-written action buttons, each wired to common/button_effects/ -----------
+		effectbuttonType = {
+			name = "muster_army_button"
+			position = { x = 24 y = 190 }
+			size = { x = 330 y = 34 }
+			quadTextureSprite = GFX_tiling_button_standard
+			orientation = UPPER_LEFT
+			font = "cg_16b"
+			buttonText = "AEROSPACE_CARRIER_BTN_MUSTER"
+			tooltipText = "AEROSPACE_CARRIER_BTN_MUSTER_TT"
+			effect = aerospace_carrier_button_muster_army
+			clicksound = tab_click
+		}
+
+		effectbuttonType = {
+			name = "muster_robotic_button"
+			position = { x = 24 y = 234 }
+			size = { x = 330 y = 34 }
+			quadTextureSprite = GFX_tiling_button_standard
+			orientation = UPPER_LEFT
+			font = "cg_16b"
+			buttonText = "AEROSPACE_CARRIER_BTN_ROBOTIC"
+			tooltipText = "AEROSPACE_CARRIER_BTN_ROBOTIC_TT"
+			effect = aerospace_carrier_button_robotic_army
+			clicksound = tab_click
+		}
+
+		effectbuttonType = {
+			name = "bombardment_button"
+			position = { x = 24 y = 278 }
+			size = { x = 330 y = 34 }
+			quadTextureSprite = GFX_tiling_button_standard
+			orientation = UPPER_LEFT
+			font = "cg_16b"
+			buttonText = "AEROSPACE_CARRIER_BTN_BOMBARD"
+			tooltipText = "AEROSPACE_CARRIER_BTN_BOMBARD_TT"
+			effect = aerospace_carrier_button_bombardment
+			clicksound = tab_click
+		}
+
+		instantTextBoxType = {
+			name = "status"
+			font = "cg_16b"
+			text = "AEROSPACE_CARRIER_BRIDGE_STATUS"
+			position = { x = 380 y = 194 }
+			maxWidth = 320
+			maxHeight = 130
+			fixedSize = yes
+			alwaysTransparent = yes
+		}
+
+		buttonType = {
+			name = "close"
+			quadTextureSprite = "GFX_button_close"
+			position = { x = -20 y = 14 }
+			orientation = "UPPER_RIGHT"
+			clicksound = "back_click"
+		}
+	}
+
+	# One row per event option; the engine names the button `option_button`.
+	containerWindowType = {
+		name = "aerospace_carrier_bridge_option"
+		position = { x = 0 y = 0 }
+		size = { width = 300 height = 30 }
+		moveable = no
+
+		buttonType = {
+			name = "option_button"
+			quadTextureSprite = "GFX_tiling_button_standard"
+			position = { x = 0 y = 8 }
+			font = "cg_16b"
+			text = "OPTION_TEXT"
+		}
+	}
+}

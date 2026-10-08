@@ -1,0 +1,194 @@
+---
+id: ship-sizes
+category: content
+title: Ship Sizes and Section Templates
+title_zh: 舰种与区段模板
+file_types: [common/ship_sizes/*.txt, common/section_templates/*.txt, common/component_slot_templates/*.txt, common/scripted_variables/*.txt]
+tags: [ship_size, section_slots, locator, entity, class, is_designable, graphical_culture, fits_on_slot, component_slot, scripted_variable]
+related: [ships-components, megastructures-starbases, gfx-interface, localisation-basics, mod-structure, scopes]
+sources: [https://stellaris.paradoxwikis.com/Ship_modding, https://stellaris.paradoxwikis.com/Ship_designer]
+verified_version: "Pegasus 4.4.6 实机文件核对"
+---
+
+## 概要
+
+一艘船由三块拼成：**ship_size（舰种）** + **section_template（区段模板）** + **component_template（组件模板）**，三者组合成 ship_design。本机 Pegasus v4.4.6：`common/ship_sizes/` **40 个文件、319 个舰种块**；`common/section_templates/` **59 个文件、481 个区段模板块**；`common/component_slot_templates/` 3 个文件。
+
+官方说明就在 `common/HOW_TO_MAKE_NEW_SHIPS.txt`（95 行，本机存在），本条目所有结构结论均与它一致并用实机文件交叉验证。三条先记住：
+
+1. **舰种块是裸键** `<ship_size_key> = { ... }`，没有 `ship_size = { ... }` 包裹（全量 0 次）。
+2. **`entity` 与 `locator` 是跨文件契约**：`section_slots` 的 `locator` 是**舰种 entity** 上的挂点名，`component_slot.locatorname` 是**区段 entity** 上的挂点名。写错不报错，只会让部件浮在原点。
+3. **`section_slots` 的槽名（如 `mid`）是自定义字符串**，与 `fits_on_slot` 对上即可，不是枚举。
+
+## 文件位置与命名
+
+- `common/ship_sizes/*.txt`：舰种。本体按内容分文件，`00_ship_sizes.txt` 顶部有 130 余行官方字段注释（第 1-132 行），是 modder 的第一手参考。最小实例见 `27_extreme_frontiers.txt`（仅 366 字节）。
+- `common/section_templates/*.txt`：区段模板。`common/component_slot_templates/*.txt`：槽位模板（`small_turret`、`point_defence_turret`、`invisible_*`、`large_strike_craft` 等，定义 `size` / `component` / `entities` / `is_fixed`）。
+- `common/scripted_variables/*.txt`：`@` 变量定义。
+- mod 加新文件即可；要改本体舰种就用同名键覆盖。
+
+## 语法与字段
+
+`common/ship_sizes/*.txt` 全 40 文件的**顶层字段实测频次**（`Select-String "^\t<字段> ="`）：`required_component_set` 780、`acceleration` 322、`class` 320、`max_speed` 319、`rotation_speed` 319、`max_hitpoints` 319、`fleet_slot_size` 317、`modifier` 316、`num_target_locators` 316、`size_multiplier` 315、`section_slots` 315、`icon` 310、`map_counter_icon` 300、`graphical_culture` 268、`is_designable` 252、`resources` 240、`is_space_station` 226、`entity` 171、`collision_radius` 159、`components_add_to_cost` 157、`base_buildtime` 154、`enable_default_design` 140、`construction_type` 131、`is_space_object` 111、`ai_ship_data` 108、`can_have_federation_design` 108、`prerequisites` 105、`formation_priority` 96、`use_shipnames_from` 92、`ship_modifier` 91、`ship_category` 86、`combat_disengage_chance` 83、`is_civilian` 73、`potential_country` 69、`ship_roles` 61、`triggered_ship_roles` 43……
+
+四个容易踩空的字段：
+
+- **`modifier` vs `ship_modifier`**（`00_ship_sizes.txt:7-8` 的官方注释原文）：`modifier = { }` 是"Modifiers for values shown in the ship designer"，`ship_modifier = { }` 是"Modifiers not shown in the ship designer"。实测 `modifier` 里用到的舰船修正：`ship_evasion_add` 239、`ship_armor_add` 162、`ship_evasion_mult` 73、`ship_weapon_range_mult` 66、`ship_shield_add` 36、`ship_fire_rate_mult` 32、`ship_sensor_range_add` 31、`ship_shield_mult` 24、`ship_reactor_power_mult` 24、`ship_armor_mult` 21、`ship_shield_regen_add_static` 18、`ship_hull_mult` 16、`ship_hull_regen_add_perc` 12、`ship_weapon_damage` 11、`ship_armor_regen_add_perc` 8、`ship_disengage_chance_mult` 7、`ship_hyperlane_range_add` 5、`ship_windup_mult` 2。
+- **`class` 的合法取值**（**原文**出自 `common/component_templates/000_documentation.txt:70-73`）：`shipclass_[military/constructor/colonizer/science_ship/transport/mining_station/research_station/military_station/observation_station/starbase/military_special/none]`，即 **12 个**。但 `common/ship_sizes/` 里实测出现 **14 个**（`shipclass_military` 200、`shipclass_starbase` 41、`shipclass_military_station` 35、`shipclass_military_special` 11、`shipclass_constructor` 10、`shipclass_colonizer` 7、`shipclass_science_ship` 6、`shipclass_transport` 4、`shipclass_mining_station` 1、`shipclass_research_station` 1、`shipclass_observation_station` 1、`shipclass_habitat_station` 1、`shipclass_gravity_snare` 1、`shipclass_entropy_conduit` 1）。其中 `shipclass_habitat_station`（`99_habitats.txt:42`）、`shipclass_gravity_snare`（`26_grand_archive.txt:28`）、`shipclass_entropy_conduit`（`28_infernals_ships.txt:230`）**不在官方注释表里**——该注释表已过时。反向地，官方列出的 `shipclass_none` 在 `ship_sizes/` 里 **0 次**。
+- **`is_designable` 不是军用舰的必填项**：全量只有 5 处 `yes`（`00_ship_sizes.txt:1561` 的 `military_station_small`、`00_space_citadel.txt:91/211/331`、`00_starbases.txt:1054` 的 `ion_cannon`），另有 247 处 `no`。**corvette / destroyer / cruiser / battleship / titan 全都没有写 `is_designable`**，所以它的缺省行为按 `class` 决定，别以为必须显式写 `yes`。反过来，怪物/空间站基本都显式写 `no`。
+- **`icon` 与 `map_counter_icon` 是"前缀"，引擎自动生成一族精灵**。`icon = ship_size_military_1` 会去找 `GFX_ship_size_military_1`、`GFX_ship_size_military_1_top`、`GFX_ship_size_military_1_top_damaged`（`00_ship_sizes.txt:11-14` 注释），实测定义在 `interface/icons.gfx:793/798/803`。`map_counter_icon = ship_counter_4` 对应 `GFX_ship_counter_4`，定义在 `interface/solar_system.gfx:3`。本机 `map_counter_icon` 取值只有 6 个：`ship_counter_4/8/16/32/64/128`。
+
+**`section_slots` 与 entity/locator 的关系（本节是重点结论）**。写法 `section_slots = { "<槽名>" = { locator = "<挂点名>" } }`，多个槽可并列。实测的"槽名 → locator"组合以 `mid → part1`（125）、`mid → root`（87）、`mid → light_pos`（25）、`bow → part1`（10）、`core → root`（9）为主，其余零散。官方指南 `HOW_TO_MAKE_NEW_SHIPS.txt:14-19` 给的例子是 `north/west/east/south → part1..part4`，`:57-59` 说明"this core entity should have the `part1`, `part2` etc locators referenced by the ship_size slots"。
+
+**能复用 vanilla 的 entity + locator 组合吗？能，而且本体自己就这么干。** 铁证是 `27_extreme_frontiers.txt` 的 `geocorp_corvette`：它写 `entity = "ancient_corvette_entity"`、`section_slots = { "mid" = { locator = "part1" } }`。`ancient_corvette_entity` 定义在 `gfx/models/ships/other/_other_entities.asset:1206`，**名字不带 gfx_culture 前缀**，所以所有文化都命中（这正是该舰种写 `graphical_culture = no` 的原因）。而它**没有任何区段模板声明 `ship_size = geocorp_corvette`**——`common/global_ship_designs/event_ship_designs_extreme_frontiers.txt:4` 直接写 `ship_size = geocorp_corvette` 配 `section = { template = "ancient_combat_drone_section" slot = "mid" }`，而那个模板的 `ship_size = ancient_corvette`。**结论**：复用可行；但引擎查 entity 时**会先拼 `gfx_culture` 前缀**（`HOW_TO_MAKE_NEW_SHIPS.txt:52-55`：实体名规则 `<gfx_culture>_<ship_size_name>_entity`，找不到才回退到不带前缀的名字），所以要复用就挑那个不带前缀的 entity，并配 `graphical_culture = no`。
+
+**`section_templates` 的字段**（481 个块的全量频次）：`component_slot` 2974、`ship_size` 653、`fits_on_slot` 629、`icon` 482、`key` 481、`entity` 481、`aux_utility_slots` 318、`should_draw_components` 246、`large_utility_slots` 174、`ai_tags` 161、`resources` 132、`small_utility_slots` 130、`medium_utility_slots` 119、`ai_weight` 97、`prerequisites` 19、`icon_frame` 3。`component_slot` 的子字段：`name` 2980、`locatorname` 2980、`template` 2979、`is_side_slot` 243，另外还有 `rotation` 78 与 `position` 5。结构是 `ship_section_template = { key = "..." ship_size = <舰种> fits_on_slot = <槽名> entity = "..." component_slot = { name = "SMALL_GUN_01" template = "small_turret" locatorname = "small_gun_01" } small_utility_slots = N ... }`。
+
+**注意字段名不是 `slot` 而是 `ship_size` + `fits_on_slot`**；`max_components` 在整个 `common/` 里出现 **0 次**，不存在。
+
+**新舰种是否必须配 section template？** 分两种情况：① **要在设计师里可用就必须有**——`ship_size` 字段的作用就是"A section_template then specifies what ship_sizes they are compatible with and which slots they fit on"（`HOW_TO_MAKE_NEW_SHIPS.txt:21-27`），设计师只会列出 `ship_size` 含当前舰种的区段；② **不设计（`is_designable = no`）的舰种可以不配**——实测 319 个舰种里有 **37 个完全没有区段模板**（`geocorp_corvette`、`marauder_corvette`、`asteroid`、`observation_station` 等），它们靠 `common/global_ship_designs/*.txt` 硬编配好区段。另外，**一个区段模板可以服务多个舰种**：`ship_size` 可写多行（`nomads_dlc.txt` 里有单块写 9 行的模板）。
+
+**`@` 脚本变量**：定义在 `common/scripted_variables/*.txt`（本机 24 个文件）。`@speed_very_fast = 160` 在 `03_scripted_variables_ships.txt:13`，`@corvette_hp = 200` 在 `:58`，`@corvette_collision_radius = 2.0` 在 `:55`。**它们是全局的，新文件里可以直接用**：`common/ship_sizes/27_extreme_frontiers.txt:11` 写了 `max_speed = @speed_very_fast`，而该文件自己只定义了 `@salvagecostsmall` / `@salvagecostmedium`——跨目录跨文件取用，本体就是这么用的。也可以在文件顶部自定 `@xxx = N` 局部复用。
+
+**本地化键**：舰种名是 **`<ship_size_key>`**，复数形式是 **`<ship_size_key>_plural`**，描述是可选的 **`<ship_size_key>_desc`**。铁证：`main_1_l_english.yml:3684-3685` 的 `corvette:0 "Corvette"` / `corvette_plural:0 "Corvettes"`（cruiser 在 `:3693-3694`，battleship `:3696-3697`，titan `:3699-3700`，frigate `:3687-3688`）；`extreme_frontiers_l_english.yml:598-599` 的 `geocorp_corvette: "$NAME_Geocorp$ Combat Drone"` / `_plural`；`leviathans_l_english.yml:32,34` 的 `ancient_corvette`。部分舰种还有 `<key>_cap` 大写形式（`corvette_cap: "$corvette$"`，`main_1:3683`）。**`_desc` 极少用**：319 个舰种里只有 3 个有小写 `_desc`（`sponsored_colonizer_desc` `main_1:1073`、`guided_sapience_colonizer_desc` `machine_age:2640`、`space_amoeba_desc` `grand_archive:3025`），另有 2 个只有大写 `_DESC`（`orbital_ring_tier_1_DESC` `overlord_mega:5`、`habitat_central_complex_DESC` `federations_anniversary:1172`）且没有小写孪生键——说明**后缀大小写不敏感**。另外**区段模板的 `key` 也需要 loc 键**：`CORVETTE_MID_S3:1 "Interceptor"`（`localisation/english/ship_sections_l_english.yml:67`）。
+
+一个最小可加载的新舰种（复用 vanilla 的 culture-agnostic entity 与 vanilla 区段 entity，因此不需要新的美术资源）：
+
+```pdx
+# common/ship_sizes/zz_my_mod_ship_sizes.txt
+@my_mod_gunboat_hp = 320
+
+my_mod_gunboat = {
+	entity = "ancient_corvette_entity"   # vanilla，无 gfx_culture 前缀
+	graphical_culture = no
+
+	max_speed = @speed_very_fast         # vanilla 全局脚本变量 = 160
+	acceleration = 0.35
+	rotation_speed = 0.15
+	collision_radius = 2.0
+	max_hitpoints = @my_mod_gunboat_hp
+
+	modifier = {                         # 设计师里可见
+		ship_evasion_add = 20
+		ship_armor_add = 2
+	}
+	ship_modifier = {                    # 设计师里不可见
+		ship_fire_rate_mult = 0.1
+	}
+
+	size_multiplier = 4
+	map_counter_icon = ship_counter_4
+	icon = ship_size_military_1
+	fleet_slot_size = 1
+	section_slots = { "mid" = { locator = "part1" } }   # part1 在 ancient_corvette_entity 上
+	num_target_locators = 2
+
+	class = shipclass_military
+	is_space_station = no
+	construction_type = starbase_shipyard
+	base_buildtime = 60
+	prerequisites = { "tech_corvettes" }
+
+	required_component_set = "power_core"
+	required_component_set = "ftl_components"
+	required_component_set = "thruster_components"
+	required_component_set = "sensor_components"
+	required_component_set = "combat_computers"
+
+	enable_default_design = yes
+	can_have_federation_design = yes
+	components_add_to_cost = no
+
+	resources = {
+		category = ships
+		cost = { alloys = 30 }
+		upkeep = { energy = 0.2 }
+	}
+}
+```
+
+```pdx
+# common/section_templates/zz_my_mod_section_templates.txt
+@section_cost = 40
+
+ship_section_template = {
+	key = "MY_MOD_GUNBOAT_MID_S3"
+	ship_size = my_mod_gunboat       # 必须在你的舰种块之后就绪；决定设计师里可选性
+	fits_on_slot = mid               # 必须与 section_slots 的槽名一致
+	should_draw_components = yes
+	entity = "corvette_S3_entity"    # vanilla 区段实体，实际查 <gfx_culture>_corvette_S3_entity
+	icon = "GFX_ship_part_core_mid"
+	ai_tags = { gunship artillery }
+
+	component_slot = { name = "SMALL_GUN_01" template = "small_turret" locatorname = "small_gun_01" }
+	component_slot = { name = "SMALL_GUN_02" template = "small_turret" locatorname = "small_gun_02" }
+	component_slot = { name = "SMALL_GUN_03" template = "small_turret" locatorname = "small_gun_03" }
+
+	small_utility_slots = 3
+	aux_utility_slots = 1
+
+	resources = {
+		category = ship_sections
+		cost = { alloys = @section_cost }
+	}
+}
+```
+
+配套本地化（`localisation/english/zz_my_mod_l_english.yml`，UTF-8 with BOM，键前置一个空格）：
+
+```text
+ my_mod_gunboat:0 "Gunboat"
+ my_mod_gunboat_plural:0 "Gunboats"
+ my_mod_gunboat_desc:0 "A light escort hull built on salvaged drone frames."
+ MY_MOD_GUNBOAT_MID_S3:0 "Gunboat Core"
+```
+
+验证是否出现在设计师里：① `tech_corvettes` 是 `prerequisites`，开局即有；② 用 `create_ship = { ... random_existing_design = my_mod_gunboat }`（`effects.log`：`random_existing_design = <ship size key>`，`create_ship` 支持 `fleet starbase` 作用域）或直接在船坞设计师里新建设计；③ 校验触发用 `is_ship_size = my_mod_gunboat`（`triggers.log:1063-1065`，`Supported Scopes: ship fleet design starbase ship_growth_stage`）和 `is_ship_class = shipclass_military`（`:1052-1054`）；④ 启动加 `-debug_mode`，缺 loc 键 / 缺 entity 都会在 `logs/error.log` 留痕。
+
+## 校验要点
+
+- 舰种块是裸键 `<key> = { ... }`，缩进与本体一致（块内一级字段用 1 个 tab）。
+- **必填性排序**：`class`、`max_speed`、`rotation_speed`、`max_hitpoints`、`size_multiplier`、`fleet_slot_size`、`section_slots`、`num_target_locators`、`icon`、`map_counter_icon` 在本体几乎每个舰种都出现（≥300/319），是事实上的必填项。`entity` 只有 171/319 写了——不写时引擎按 `<gfx_culture>_<key>_entity` 回退查找。
+- `required_component_set` 共 780 次、覆盖 319 个舰种，是**可多行重复**的字段（`power_core` / `ftl_components` / `thruster_components` / `sensor_components` / `combat_computers`），漏掉会让设计无法保存。
+- 槽名与 `fits_on_slot` 必须逐字符一致；`locator` 必须是舰种 entity 上真实存在的挂点名；`component_slot.locatorname` 必须是区段 entity 上的真实挂点名。三处任一错都不报错，只显示错位或空白。
+- 要复用 vanilla entity 就选**不带文化前缀**的那种，并写 `graphical_culture = no`（本体 152 处）。`graphical_culture` 也可写成列表，如 `graphical_culture = { "biogenesis_01" "biogenesis_02" }`（106 处）。
+- `construction_type = starbase_shipyard`（79 处，另有列表写法 `= { starbase_shipyard starbase_beastport }` 46 处、`starbase_defenses` 6 处）决定在哪种船坞能造。
+- `resources = { category = ships cost = { ... } }`：`category` 取值以 `ships` 205 为主，其余是 `vivarium` 38、`bio_ship` 34、`crystalline_entity` 27、`starbases` 14、`tiyanki` 14、`voidworm` 11 等生物/空间站专用类别。军用舰用 `ships`。`upkeep = { }` 也在这里（`00_biogenesis.txt:66`）。
+- 区段模板的 `key` 与 `entity` 都是必填（481 个块里各 481 次），`icon` 482 次；`ship_size` 与 `fits_on_slot` 可重复多行。
+- `size_multiplier` 会改变舰队容量占用与海军容量折算；官方注释提醒 `ai_ship_data.fraction` 的最终值会**除以 `size_multiplier`**（`00_ship_sizes.txt:21`）。`ai_ship_data` 不写不会导致玩家造不出来，但 AI 不会主动造该舰种。
+
+## 常见错误
+
+- 写 `ship_size = { ... }` 作为包裹块：不存在，用裸键 `<key> = { ... }`。
+- 写 `slot = <槽名>`、`max_components = N`、`upgrades_from`、裸 `potential`：**这四个都不存在**（全量各 0 次）。对应正确写法是 `fits_on_slot`、无此字段、`upgrades_to`（16 次，`00_biogenesis.txt:62`）、`potential_country`（69 次）/ `potential_construction`（46 次）/ `possible_construction`（33 次）。
+- 用 `build_time` 写建造时间：全量仅 **1 次**，应当用 `base_buildtime`（154 次）。
+- 让新舰种在设计师里可用却忘记写区段模板：槽位永远填不满，设计无法保存。
+- 区段模板的 `key` 忘了配 loc 键：设计师里显示原始键名。
+- 复用带文化前缀的 vanilla entity（如 `corvette_entity`）却不写 `graphical_culture = no`：非对应文化的国家船体不可见。
+- `map_counter_icon` 写成本体不存在的值：星系地图舰队图标丢失。可用值只有 `ship_counter_4/8/16/32/64/128`。
+
+## 待确认
+
+- `is_designable` 的**精确缺省规则**未从实机反推证实：corvette 等 5 类主要军用舰都没写它，而 `military_station_small`、`ion_cannon`、`starbase_deep_space_citadel_1/2/3` 显式写 `yes`。合理推测是按 `class` 决定缺省，但**没有官方文档或实机对照实验**支撑；要确保可设计建议显式写 `is_designable = yes`。
+- `section_template.ship_size` 是"设计师可选性过滤"还是也参与运行期校验，只有官方注释（`HOW_TO_MAKE_NEW_SHIPS.txt:21-27`）说明；`geocorp_corvette` 证明运行期可用 `global_ship_design` 绕过。设计师的过滤未做实机对照。
+- `common/ship_sizes/00_ship_sizes.txt` 顶部注释里的若干字段（`hero_ship` 的 `capabilities` / `custom_state_loc_prefix` / `custom_class_text_color`、`can_lead_armada`、`encampment_required_progress` 等）只在注释中出现，全量频次统计里各为 0 或极低——它们可能要求**块写法**（如 `hero_ship = { ... }`），未逐一定位真实用例。用到时应先在本体搜真实例子。
+- `class` 没有闭集证据：官方注释 12 个（含 `shipclass_none`，实测 0 次），实机出现 14 个（多出 `habitat_station` / `gravity_snare` / `entropy_conduit`）。是否存在第 15 个未知。`num_target_locators` 与 `graphical_culture = yes` 的语义也未查证。
+- `@` 变量在本机是全局可跨目录取用（有 `27_extreme_frontiers.txt:11` 的铁证），但**同名重复定义时的覆盖顺序**未实测；mod 里建议用带 mod 前缀的独有变量名以避免与本体冲突。
+- 本条目引用的脚本签名来自 `%USERPROFILE%\Documents\Paradox Interactive\Stellaris\logs\script_documentation\`（**用户给出的 `<Stellaris>\logs\` 不存在**——该目录是运行时产物）。该文档目录不能保证与 4.4.6 严格同版本，但 `is_ship_size` / `is_ship_class` / `create_ship` 的用法已与本机 4.4.6 脚本互证。
+
+## 参考
+
+- 本机 `Stellaris/common/HOW_TO_MAKE_NEW_SHIPS.txt`（全 95 行：三大件关系、`part1..part4` locator、gfx_culture 前缀规则、特殊舰种四步流程）
+- 本机 `Stellaris/common/ship_sizes/00_ship_sizes.txt:1-132`（官方字段注释块）、`:203-280`（corvette 完整块）
+- 本机 `Stellaris/common/ship_sizes/27_extreme_frontiers.txt`（全 42 行；`geocorp_corvette` 最小实例，复用 `ancient_corvette_entity`）
+- 本机 `Stellaris/common/component_templates/000_documentation.txt:70-73`（`class` 合法取值原文：`shipclass_[military/constructor/colonizer/science_ship/transport/mining_station/research_station/military_station/observation_station/starbase/military_special/none]`）
+- 本机 `Stellaris/common/section_templates/corvette.txt:47-100`（`CORVETTE_MID_S3` 完整区段模板）、`ancient_drones.txt`（`ancient_combat_drone_section`，`ship_size = ancient_corvette`）
+- 本机 `Stellaris/common/global_ship_designs/event_ship_designs_extreme_frontiers.txt:4-14`（`geocorp_corvette` 的 global design，证明可跨 `ship_size` 列表绑定区段）、`000_documentation.txt`（ship_design 字段注释）
+- 本机 `Stellaris/common/component_slot_templates/00_component_slots_turrets.txt`（`small_turret` / `medium_turret` / `point_defence_turret` 的 `size`+`component`+`entities` 结构）
+- 本机 `Stellaris/common/scripted_variables/03_scripted_variables_ships.txt:13,55,58`（`@speed_very_fast = 160`、`@corvette_collision_radius = 2.0`、`@corvette_hp = 200`）
+- 本机 `Stellaris/common/graphical_culture/00_graphical_culture.txt`、`01_graphical_culture_megacorp.txt`（`humanoid_01` / `mammalian_01` / `plantoid_01` 等 gfx_culture 键）
+- 本机 `Stellaris/gfx/models/ships/other/_other_entities.asset:1206`（`ancient_corvette_entity`，无文化前缀）、`gfx/models/ships/_arthropoid_01_ships_entities.asset:486`（`arthropoid_01_corvette_S3_entity`）
+- 本机 `Stellaris/localisation/english/main_1_l_english.yml:3679-3705`（舰种名 / `_plural` / `_cap`）、`ship_sections_l_english.yml:67`（区段模板 `key` 的 loc 键）、`extreme_frontiers_l_english.yml:598-599`
+- 本机 `Stellaris/interface/icons.gfx:793/798/803` 与 `interface/solar_system.gfx:3`（`icon` / `map_counter_icon` 生成的 GFX 精灵）
+- 本机 `%USERPROFILE%/Documents/Paradox Interactive/Stellaris/logs/script_documentation/triggers.log:1052-1065`（`is_ship_class` / `is_ship_size` 签名与作用域）、`effects.log`（`create_ship` 的 `random_existing_design = <ship size key>`）
+- [Ship modding](https://stellaris.paradoxwikis.com/Ship_modding)、[Ship designer](https://stellaris.paradoxwikis.com/Ship_designer)
